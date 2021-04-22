@@ -1373,17 +1373,12 @@ export class AuthClass {
 	 * @return - If the user is authenticated.
 	 */
 	public isAuthenticated(): boolean {
+		logger.debug('Checking if user is authenticated');
 		if (!this.userPool) {
 			const type = this.noUserPoolErrorHandler(this._config);
 			throw new NoUserPoolError(type);
 		}
 		try {
-			this._storageSync
-				.then(() => {})
-				.catch((e: Error) => {
-					logger.debug('Failed to sync cache info into memory', e);
-					throw e;
-				});
 			if (this.isOAuthInProgress()) {
 				logger.debug('Still in OAuth flow, user is unauthenticated');
 				return false;
@@ -1391,6 +1386,7 @@ export class AuthClass {
 			const federatedUser = this.getFederatedUserInfo();
 			// If federated user info is found, that means the user is authenticated
 			if (federatedUser) {
+				logger.info('Got authenticated user', federatedUser);
 				return true;
 			}
 			const userSession = this.getUserSessionFromCache();
