@@ -108,6 +108,8 @@ jest.mock('amazon-cognito-identity-js/lib/CognitoUserPool', () => {
 		callback(null, 'signUpResult');
 	};
 
+	CognitoUserPool.prototype.getClientId = () => 'testClientId';
+
 	return CognitoUserPool;
 });
 
@@ -3614,6 +3616,109 @@ describe('auth unit test', () => {
 					.then()
 			).rejects.toEqual(errorMessage);
 
+			spyon.mockClear();
+		});
+	});
+
+	describe('isAuthenticated test', () => {
+		test('no tokens in storage', () => {
+			const spyon = jest
+				.spyOn(StorageHelper.prototype, 'getStorage')
+				.mockImplementation(() => ({
+					getItem() {},
+				}));
+			const auth = new Auth(authOptions);
+			const isAuthenticated = auth.isAuthenticated();
+			expect(isAuthenticated).toBeFalsy();
+			spyon.mockClear();
+		});
+
+		test('tokens expired', () => {
+			const spyon = jest
+				.spyOn(StorageHelper.prototype, 'getStorage')
+				.mockImplementation(() => ({
+					getItem(key: string) {
+						if (
+							key === 'CognitoIdentityServiceProvider.testClientId.LastAuthUser'
+						) {
+							return 'testUser';
+						}
+						if (
+							key ===
+							'CognitoIdentityServiceProvider.testClientId.testUser.idToken'
+						) {
+							return 'idToken';
+						}
+						if (
+							key ===
+							'CognitoIdentityServiceProvider.testClientId.testUser.accessToken'
+						) {
+							return 'accessToken';
+						}
+					},
+				}));
+			const spyon2 = jest
+				.spyOn(CognitoUserSession.prototype, 'isValid')
+				.mockImplementation(() => false);
+
+			const auth = new Auth(authOptions);
+			const isAuthenticated = auth.isAuthenticated();
+			expect(isAuthenticated).toBeFalsy();
+			spyon.mockClear();
+			spyon2.mockClear();
+		});
+
+		test('happy case - tokens exist and valid', () => {
+			const spyon = jest
+				.spyOn(StorageHelper.prototype, 'getStorage')
+				.mockImplementation(() => ({
+					getItem(key: string) {
+						if (
+							key === 'CognitoIdentityServiceProvider.testClientId.LastAuthUser'
+						) {
+							return 'testUser';
+						}
+						if (
+							key ===
+							'CognitoIdentityServiceProvider.testClientId.testUser.idToken'
+						) {
+							return 'idToken';
+						}
+						if (
+							key ===
+							'CognitoIdentityServiceProvider.testClientId.testUser.accessToken'
+						) {
+							return 'accessToken';
+						}
+					},
+				}));
+			const spyon2 = jest
+				.spyOn(CognitoUserSession.prototype, 'isValid')
+				.mockImplementation(() => true);
+
+			const auth = new Auth(authOptions);
+			const isAuthenticated = auth.isAuthenticated();
+			expect(isAuthenticated).toBeTruthy();
+			spyon.mockClear();
+			spyon2.mockClear();
+		});
+
+		test('happy case - federated user', () => {
+			const spyon = jest
+				.spyOn(StorageHelper.prototype, 'getStorage')
+				.mockImplementation(() => ({
+					getItem() {
+						return JSON.stringify({
+							user: {
+								name: 'federated user',
+							},
+							token: 'token',
+						});
+					},
+				}));
+			const auth = new Auth(authOptions);
+			const isAuthenticated = auth.isAuthenticated();
+			expect(isAuthenticated).toBeTruthy();
 			spyon.mockClear();
 		});
 	});

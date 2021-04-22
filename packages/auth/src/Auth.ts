@@ -69,6 +69,7 @@ import OAuth from './OAuth/OAuth';
 import { default as urlListener } from './urlListener';
 import { AuthError, NoUserPoolError } from './Errors';
 import { AuthErrorTypes, CognitoHostedUIIdentityProvider } from './types/Auth';
+import { AuthStorageKey } from './common/AuthStorageKey';
 
 const logger = new Logger('AuthClass');
 const USER_ADMIN_SCOPE = 'aws.cognito.signin.user.admin';
@@ -328,7 +329,10 @@ export class AuthClass {
 				validationData = [];
 				Object.keys(validationDataObject).map(key => {
 					validationData.push(
-						new CognitoUserAttribute({ Name: key, Value: validationDataObject[key] })
+						new CognitoUserAttribute({
+							Name: key,
+							Value: validationDataObject[key],
+						})
 					);
 				});
 			}
@@ -1316,6 +1320,89 @@ export class AuthClass {
 
 	private isOAuthInProgress(): boolean {
 		return this.oAuthFlowInProgress;
+	}
+
+	private getFederatedUserInfo(): FederatedUser | null {
+		try {
+			const federatedInfo = JSON.parse(
+				this._storage.getItem('aws-amplify-federatedInfo')
+			);
+			if (federatedInfo) {
+				return {
+					...federatedInfo.user,
+					token: federatedInfo.token,
+				};
+			}
+		} catch (err) {
+			logger.debug('cannot load federated user from auth storage');
+		}
+		return null;
+	}
+
+	private getUserSessionFromCache(): CognitoUserSession | null {
+		const keyPrefix = `${
+			AuthStorageKey.COGNITO_PREFIX
+		}.${this.userPool.getClientId()}`;
+		const lastUserKey = `${keyPrefix}.${AuthStorageKey.LAST_USER}`;
+		const userName = this._storage.getItem(lastUserKey);
+
+		if (!userName) {
+			logger.debug('Username not found in storage');
+			return null;
+		}
+
+		const idTokenString = this._storage.getItem(
+			`${keyPrefix}.${userName}.${AuthStorageKey.ID_TOKEN}`
+		);
+		const accessTokenString = this._storage.getItem(
+			`${keyPrefix}.${userName}.${AuthStorageKey.ACCESS_TOKEN}`
+		);
+
+		if (!idTokenString || !accessTokenString) {
+			return null;
+		}
+
+		return new CognitoUserSession({
+			IdToken: new CognitoIdToken({ IdToken: idTokenString }),
+			AccessToken: new CognitoAccessToken({ AccessToken: accessTokenString }),
+		});
+	}
+
+	/**
+	 * Synchronous way to check if the user is authenticated.
+	 * @return - If the user is authenticated.
+	 */
+	public isAuthenticated(): boolean {
+		if (!this.userPool) {
+			const type = this.noUserPoolErrorHandler(this._config);
+			throw new NoUserPoolError(type);
+		}
+		try {
+			this._storageSync
+				.then(() => {})
+				.catch((e: Error) => {
+					logger.debug('Failed to sync cache info into memory', e);
+					throw e;
+				});
+			if (this.isOAuthInProgress()) {
+				logger.debug('Still in OAuth flow, user is unauthenticated');
+				return false;
+			}
+			const federatedUser = this.getFederatedUserInfo();
+			// If federated user info is found, that means the user is authenticated
+			if (federatedUser) {
+				return true;
+			}
+			const userSession = this.getUserSessionFromCache();
+			if (!userSession) {
+				return false;
+			}
+			// else, check if the user tokens are still valid
+			return userSession.isValid();
+		} catch (err) {
+			logger.debug('Error while checking authentication status: ', err);
+			throw err;
+		}
 	}
 
 	/**
