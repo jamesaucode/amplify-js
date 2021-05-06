@@ -94,6 +94,7 @@ export class AuthClass {
 	private userPool: CognitoUserPool = null;
 	private user: any = null;
 	private _oAuthHandler: OAuth;
+	private _inMemoryCache: { [key: string]: string };
 	private _storage;
 	private _storageSync;
 	private oAuthFlowInProgress: boolean = false;
@@ -173,6 +174,16 @@ export class AuthClass {
 		this._storageSync = Promise.resolve();
 		if (typeof this._storage['sync'] === 'function') {
 			this._storageSync = this._storage['sync']();
+		}
+
+		const originalSetItem = this._storage.setItem;
+
+		this._storage = {
+			...this._storage,
+			setItem: (key: string, value: string) => {
+				originalSetItem(key, value);
+				this._inMemoryCache[key] = value;
+			}
 		}
 
 		if (userPoolId) {
