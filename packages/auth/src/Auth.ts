@@ -187,7 +187,7 @@ export class AuthClass {
 			removeItem: (key: string) => {
 				delete this._inMemoryCache[key];
 				ogStorage.removeItem(key);
-			}
+			},
 		};
 
 		if (userPoolId) {
@@ -1363,18 +1363,17 @@ export class AuthClass {
 			this._inMemoryCache[lastUserKey] || this._storage.getItem(lastUserKey);
 
 		if (!userName) {
-			logger.debug('Username not found in storage');
+			logger.debug('no username found in storage');
 			return null;
 		}
 
 		const idTokenKey = `${keyPrefix}.${userName}.${AuthStorageKey.ID_TOKEN}`;
-		const idTokenString =
-			this._inMemoryCache[idTokenKey] || this._storage.getItem(idTokenKey);
 		const accessTokenKey = `${keyPrefix}.${userName}.${AuthStorageKey.ACCESS_TOKEN}`;
 		const accessTokenString =
 			this._inMemoryCache[accessTokenKey] ||
 			this._storage.getItem(accessTokenKey);
-
+		const idTokenString =
+			this._inMemoryCache[idTokenKey] || this._storage.getItem(idTokenKey);
 		if (!idTokenString || !accessTokenString) {
 			return null;
 		}
@@ -1401,17 +1400,10 @@ export class AuthClass {
 				return false;
 			}
 			const federatedUser = this.getFederatedUserInfo();
-			// If federated user info is found, that means the user is authenticated
-			if (federatedUser) {
-				logger.info('Got authenticated user', federatedUser);
-				return true;
-			}
 			const userSession = this.getUserSessionFromCache();
-			if (!userSession) {
-				return false;
-			}
+			// If federated user info is found, that means the user is authenticated
 			// else, check if the user tokens are still valid
-			return userSession.isValid();
+			return federatedUser !== null || (userSession && userSession.isValid());
 		} catch (err) {
 			logger.debug('Error while checking authentication status: ', err);
 			throw err;
