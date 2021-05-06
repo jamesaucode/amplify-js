@@ -183,8 +183,8 @@ export class AuthClass {
 			setItem: (key: string, value: string) => {
 				originalSetItem(key, value);
 				this._inMemoryCache[key] = value;
-			}
-		}
+			},
+		};
 
 		if (userPoolId) {
 			const userPoolData: ICognitoUserPoolData = {
@@ -1355,19 +1355,21 @@ export class AuthClass {
 			AuthStorageKey.COGNITO_PREFIX
 		}.${this.userPool.getClientId()}`;
 		const lastUserKey = `${keyPrefix}.${AuthStorageKey.LAST_USER}`;
-		const userName = this._storage.getItem(lastUserKey);
+		const userName =
+			this._inMemoryCache[lastUserKey] || this._storage.getItem(lastUserKey);
 
 		if (!userName) {
 			logger.debug('Username not found in storage');
 			return null;
 		}
 
-		const idTokenString = this._storage.getItem(
-			`${keyPrefix}.${userName}.${AuthStorageKey.ID_TOKEN}`
-		);
-		const accessTokenString = this._storage.getItem(
-			`${keyPrefix}.${userName}.${AuthStorageKey.ACCESS_TOKEN}`
-		);
+		const idTokenKey = `${keyPrefix}.${userName}.${AuthStorageKey.ID_TOKEN}`;
+		const idTokenString =
+			this._inMemoryCache[idTokenKey] || this._storage.getItem(idTokenKey);
+		const accessTokenKey = `${keyPrefix}.${userName}.${AuthStorageKey.ACCESS_TOKEN}`;
+		const accessTokenString =
+			this._inMemoryCache[accessTokenKey] ||
+			this._storage.getItem(accessTokenKey);
 
 		if (!idTokenString || !accessTokenString) {
 			return null;
