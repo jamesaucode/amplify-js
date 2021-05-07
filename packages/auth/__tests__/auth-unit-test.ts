@@ -3621,6 +3621,12 @@ describe('auth unit test', () => {
 	});
 
 	describe('isAuthenticated test', () => {
+
+		afterEach(() => {
+			jest.clearAllMocks();
+			jest.restoreAllMocks();
+		});
+
 		test('no tokens in storage', () => {
 			const spyon = jest
 				.spyOn(StorageHelper.prototype, 'getStorage')
@@ -3630,7 +3636,6 @@ describe('auth unit test', () => {
 			const auth = new Auth(authOptions);
 			const isAuthenticated = auth.isAuthenticated();
 			expect(isAuthenticated).toBeFalsy();
-			spyon.mockClear();
 		});
 
 		test('tokens expired', () => {
@@ -3664,8 +3669,22 @@ describe('auth unit test', () => {
 			const auth = new Auth(authOptions);
 			const isAuthenticated = auth.isAuthenticated();
 			expect(isAuthenticated).toBeFalsy();
-			spyon.mockClear();
-			spyon2.mockClear();
+		});
+
+		test('OAuth is in progress', () => {
+			// @ts-ignore
+			const spyon = jest.spyOn(Auth.prototype, 'isOAuthInProgress')
+			 .mockImplementation(() => true);
+			const auth = new Auth(authOptions);
+			const isAuthenticated = auth.isAuthenticated();
+			expect(isAuthenticated).toBeFalsy();
+		});
+
+		test('No userpool', () => {
+			// @ts-ignore
+			const auth = new Auth(authOptionsWithNoUserPoolId);
+			
+			expect(() => auth.isAuthenticated()).toThrow(AuthError);
 		});
 
 		test('happy case - tokens exist and valid', () => {
@@ -3699,8 +3718,6 @@ describe('auth unit test', () => {
 			const auth = new Auth(authOptions);
 			const isAuthenticated = auth.isAuthenticated();
 			expect(isAuthenticated).toBeTruthy();
-			spyon.mockClear();
-			spyon2.mockClear();
 		});
 
 		test('happy case - federated user', () => {
@@ -3719,7 +3736,6 @@ describe('auth unit test', () => {
 			const auth = new Auth(authOptions);
 			const isAuthenticated = auth.isAuthenticated();
 			expect(isAuthenticated).toBeTruthy();
-			spyon.mockClear();
 		});
 	});
 });

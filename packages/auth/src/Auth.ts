@@ -1350,8 +1350,8 @@ export class AuthClass {
 			}
 		} catch (err) {
 			logger.debug('cannot load federated user from auth storage');
+			return null;
 		}
-		return null;
 	}
 
 	private getUserSessionFromCache(): CognitoUserSession | null {
