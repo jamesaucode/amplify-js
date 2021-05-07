@@ -180,6 +180,9 @@ export class AuthClass {
 
 		this._storage = {
 			...ogStorage,
+			getItem: (key: string) => {
+				return ogStorage.getItem(key)
+			},
 			setItem: (key: string, value: string) => {
 				this._inMemoryCache[key] = value;
 				ogStorage.setItem(key, value);
@@ -188,6 +191,10 @@ export class AuthClass {
 				delete this._inMemoryCache[key];
 				ogStorage.removeItem(key);
 			},
+			clear: () => {
+				this._inMemoryCache = {};
+				ogStorage.clear();
+			}
 		};
 
 		if (userPoolId) {
@@ -1337,7 +1344,7 @@ export class AuthClass {
 		return this.oAuthFlowInProgress;
 	}
 
-	private getFederatedUserInfo(): FederatedUser | null {
+	private _getFederatedUserInfo(): FederatedUser | null {
 		try {
 			const federatedInfo = JSON.parse(
 				this._storage.getItem('aws-amplify-federatedInfo')
@@ -1354,7 +1361,7 @@ export class AuthClass {
 		}
 	}
 
-	private getUserSessionFromCache(): CognitoUserSession | null {
+	private _getUserSessionFromCache(): CognitoUserSession | null {
 		const keyPrefix = `${
 			AuthStorageKey.COGNITO_PREFIX
 		}.${this.userPool.getClientId()}`;
@@ -1399,11 +1406,11 @@ export class AuthClass {
 				logger.debug('Still in OAuth flow, user is unauthenticated');
 				return false;
 			}
-			const federatedUser = this.getFederatedUserInfo();
-			const userSession = this.getUserSessionFromCache();
+			const federatedUser = this._getFederatedUserInfo();
+			const userSession = this._getUserSessionFromCache();
 			// If federated user info is found, that means the user is authenticated
 			// else, check if the user tokens are still valid
-			return federatedUser !== null || (userSession && userSession.isValid());
+			return !!federatedUser || (!!userSession && userSession.isValid());
 		} catch (err) {
 			logger.debug('Error while checking authentication status: ', err);
 			throw err;
