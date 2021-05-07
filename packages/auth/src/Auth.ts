@@ -2164,10 +2164,7 @@ export class AuthClass {
 					);
 
 					if (isCustomStateIncluded) {
-						const customState = state
-							.split('-')
-							.splice(1)
-							.join('-');
+						const customState = state.split('-').splice(1).join('-');
 
 						dispatchAuthEvent(
 							'customOAuthState',
