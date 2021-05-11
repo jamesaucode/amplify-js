@@ -181,7 +181,7 @@ export class AuthClass {
 		this._storage = {
 			...ogStorage,
 			getItem: (key: string) => {
-				return ogStorage.getItem(key)
+				return this._inMemoryCache[key] || ogStorage.getItem(key);
 			},
 			setItem: (key: string, value: string) => {
 				this._inMemoryCache[key] = value;
