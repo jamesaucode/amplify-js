@@ -19,3 +19,21 @@ export interface StorageOptions {
 	level?: string;
 	credentials?: object;
 }
+
+export interface BaseStorageConfig {
+	level?: 'public' | 'private' | 'protected';
+	provider?: string;
+}
+
+export interface GetConfig extends BaseStorageConfig {
+	download?: boolean;
+}
+
+interface DownloadOutput {
+	Body: ReadableStream | Blob;
+}
+
+export type GetOutput<T> = T extends { download: true }
+	? Promise<DownloadOutput>
+	: Promise<string>;
+
