@@ -17,7 +17,7 @@ import {
 	StorageProvider,
 	GetOutput,
 	BaseStorageConfig,
-	GetConfig,
+	StorageGetConfig,
 } from './types';
 import axios, { CancelTokenSource } from 'axios';
 
@@ -207,19 +207,19 @@ export class Storage {
 	 * @param {Object} [config] - { level : private|protected|public, download: true|false }
 	 * @return - A promise resolves to either a presigned url or the object
 	 */
-	public get<T extends GetConfig>(
+	public get<T extends StorageGetConfig>(
 		key: string,
 		config?: T
 	): Promise<GetOutput<T>> {
 		const cancelTokenSource = this.getCancellableTokenSource();
-		const responsePromise = new Promise<GetOutput<T>>(res => {
+		const responsePromise = new Promise<GetOutput<T>>((res, rej) => {
 			const { provider = DEFAULT_PROVIDER } = config || {};
 			const prov = this._pluggables.find(
 				pluggable => pluggable.getProviderName() === provider
 			);
 			if (prov === undefined) {
 				logger.debug('No plugin found with providerName', provider);
-				throw new Error('No plugin found in Storage for the provider');
+				rej(new Error('No plugin found in Storage for the provider'));
 			}
 			res(
 				prov.get(key, {
