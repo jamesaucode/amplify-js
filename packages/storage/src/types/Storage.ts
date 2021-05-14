@@ -29,11 +29,7 @@ export interface GetConfig extends BaseStorageConfig {
 	download?: boolean;
 }
 
-interface DownloadOutput {
-	Body: ReadableStream | Blob;
-}
-
 export type GetOutput<T> = T extends { download: true }
-	? Promise<DownloadOutput>
-	: Promise<string>;
+	? Object
+	: string;
 

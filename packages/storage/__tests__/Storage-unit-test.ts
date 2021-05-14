@@ -477,11 +477,7 @@ describe('Storage', () => {
 		});
 		test('get without provider', async () => {
 			const storage = new StorageClass();
-			try {
-				await storage.get('key');
-			} catch (err) {
-				expect(err).toEqual('No plugin found in Storage for the provider');
-			}
+			await expect(storage.get('key', { download: true })).rejects.toThrow('No plugin found in Storage for the provider');
 		});
 	});
 

@@ -13,7 +13,12 @@
 
 import { ConsoleLogger as Logger, Parser } from '@aws-amplify/core';
 import { AWSS3Provider } from './providers';
-import { StorageProvider, GetOutput, BaseStorageConfig, GetConfig } from './types';
+import {
+	StorageProvider,
+	GetOutput,
+	BaseStorageConfig,
+	GetConfig,
+} from './types';
 import axios, { CancelTokenSource } from 'axios';
 
 const logger = new Logger('StorageClass');
@@ -205,22 +210,26 @@ export class Storage {
 	public get<T extends GetConfig>(
 		key: string,
 		config?: T
-	): GetOutput<T> {
-		const { provider = DEFAULT_PROVIDER } = config || {};
-		const prov = this._pluggables.find(
-			pluggable => pluggable.getProviderName() === provider
-		);
-		if (prov === undefined) {
-			logger.debug('No plugin found with providerName', provider);
-			return Promise.reject('No plugin found in Storage for the provider') as GetOutput<T>;
-		}
+	): Promise<GetOutput<T>> {
 		const cancelTokenSource = this.getCancellableTokenSource();
-		const responsePromise = prov.get(key, {
-			...config,
-			cancelTokenSource,
+		const responsePromise = new Promise<GetOutput<T>>(res => {
+			const { provider = DEFAULT_PROVIDER } = config || {};
+			const prov = this._pluggables.find(
+				pluggable => pluggable.getProviderName() === provider
+			);
+			if (prov === undefined) {
+				logger.debug('No plugin found with providerName', provider);
+				throw new Error('No plugin found in Storage for the provider');
+			}
+			res(
+				prov.get(key, {
+					...config,
+					cancelTokenSource,
+				}) as Promise<GetOutput<T>>
+			);
 		});
 		this.updateRequestToBeCancellable(responsePromise, cancelTokenSource);
-		return responsePromise as GetOutput<T>;
+		return responsePromise;
 	}
 
 	public isCancelError(error: any) {
