@@ -471,14 +471,7 @@ describe('Storage', () => {
 			const provider = new AWSStorageProvider();
 			storage.addPluggable(provider);
 			storage.configure(options);
-			await storage.get('key', {
-				Storage: {
-					AWSS3: {
-						bucket: 'bucket',
-						region: 'us-east-1',
-					},
-				},
-			});
+			await storage.get('key', {});
 			expect(get_spyon).toBeCalled();
 			get_spyon.mockClear();
 		});

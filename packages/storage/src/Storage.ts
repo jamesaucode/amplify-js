@@ -13,7 +13,7 @@
 
 import { ConsoleLogger as Logger, Parser } from '@aws-amplify/core';
 import { AWSS3Provider } from './providers';
-import { StorageProvider } from './types';
+import { StorageProvider, GetOutput, BaseStorageConfig, GetConfig } from './types';
 import axios, { CancelTokenSource } from 'axios';
 
 const logger = new Logger('StorageClass');
@@ -202,14 +202,17 @@ export class Storage {
 	 * @param {Object} [config] - { level : private|protected|public, download: true|false }
 	 * @return - A promise resolves to either a presigned url or the object
 	 */
-	public get(key: string, config?): Promise<String | Object> {
+	public get<T extends GetConfig>(
+		key: string,
+		config?: T
+	): GetOutput<T> {
 		const { provider = DEFAULT_PROVIDER } = config || {};
 		const prov = this._pluggables.find(
 			pluggable => pluggable.getProviderName() === provider
 		);
 		if (prov === undefined) {
 			logger.debug('No plugin found with providerName', provider);
-			return Promise.reject('No plugin found in Storage for the provider');
+			return Promise.reject('No plugin found in Storage for the provider') as GetOutput<T>;
 		}
 		const cancelTokenSource = this.getCancellableTokenSource();
 		const responsePromise = prov.get(key, {
@@ -217,7 +220,7 @@ export class Storage {
 			cancelTokenSource,
 		});
 		this.updateRequestToBeCancellable(responsePromise, cancelTokenSource);
-		return responsePromise;
+		return responsePromise as GetOutput<T>;
 	}
 
 	public isCancelError(error: any) {
