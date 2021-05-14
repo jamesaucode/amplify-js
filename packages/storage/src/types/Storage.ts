@@ -20,12 +20,11 @@ export interface StorageOptions {
 	credentials?: object;
 }
 
-export interface BaseStorageConfig {
-	level?: 'public' | 'private' | 'protected';
-	provider?: string;
-}
+type StorageLevel = 'public' | 'private' | 'protected';
 
-export interface GetConfig extends BaseStorageConfig {
+export interface StorageGetConfig {
+	level?: StorageLevel;
+	provider?: string;
 	download?: boolean;
 }
 
