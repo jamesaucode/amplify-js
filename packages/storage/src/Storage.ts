@@ -219,7 +219,7 @@ export class Storage {
 			);
 			if (prov === undefined) {
 				logger.debug('No plugin found with providerName', provider);
-				rej(new Error('No plugin found in Storage for the provider'));
+				throw new Error('No plugin found in Storage for the provider');
 			}
 			res(
 				prov.get(key, {
