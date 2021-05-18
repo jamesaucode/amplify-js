@@ -138,7 +138,7 @@ describe('StorageProvider test', () => {
 			jest.spyOn(formatURL, 'formatUrl').mockReturnValueOnce('url');
 
 			expect.assertions(3);
-			expect(await storage.get('key', { downloaded: false })).toBe('url');
+			expect(await storage.get('key', { download: false })).toBe('url');
 			expect(spyon.mock.calls[0][0].path).toEqual('/public/key');
 			expect(spyon.mock.calls[0][0].hostname).toEqual(
 				options.bucket + '.s3.' + options.region + '.amazonaws.com'
@@ -500,7 +500,7 @@ describe('StorageProvider test', () => {
 					});
 				});
 
-			await storage.get('key', { downloaded: false });
+			await storage.get('key', { download: false });
 
 			const curCredSpyOn2 = jest
 				.spyOn(Credentials, 'get')
@@ -512,7 +512,7 @@ describe('StorageProvider test', () => {
 					});
 				});
 
-			await storage.get('key', { downloaded: false });
+			await storage.get('key', { download: false });
 
 			expect(curCredSpyOn.mock.calls.length).toBe(2);
 

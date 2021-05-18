@@ -22,11 +22,21 @@ import {
 	GetObjectCommand,
 	DeleteObjectCommand,
 	ListObjectsCommand,
+	GetObjectCommandOutput,
+	GetObjectCommandInput,
 } from '@aws-sdk/client-s3';
 import { formatUrl } from '@aws-sdk/util-format-url';
 import { createRequest } from '@aws-sdk/util-create-request';
-import { S3RequestPresigner } from '@aws-sdk/s3-request-presigner';
-import { StorageOptions, StorageProvider } from '../types';
+import {
+	S3RequestPresigner,
+	getSignedUrl,
+} from '@aws-sdk/s3-request-presigner';
+import {
+	StorageOptions,
+	StorageProvider,
+	StorageGetConfig,
+	StorageGetOutput,
+} from '../types';
 import {
 	AxiosHttpHandler,
 	SEND_DOWNLOAD_PROGRESS_EVENT,
@@ -125,13 +135,16 @@ export class AWSS3Provider implements StorageProvider {
 	 * @param {Object} [config] - { level : private|protected|public, download: true|false }
 	 * @return - A promise resolves to Amazon S3 presigned URL on success
 	 */
-	public async get(key: string, config?): Promise<string | Object> {
+	public async get<T extends StorageGetConfig>(
+		key: string,
+		config?: T
+	): Promise<StorageGetOutput<T>> {
 		const credentialsOK = await this._ensureCredentials();
 		if (!credentialsOK) {
-			return Promise.reject('No credentials');
+			throw new Error('No credentials');
 		}
 
-		const opt = Object.assign({}, this._config, config);
+		const opt: StorageGetConfig = Object.assign({}, this._config, config);
 		const {
 			bucket,
 			download,
@@ -150,7 +163,7 @@ export class AWSS3Provider implements StorageProvider {
 		const s3 = this._createNewS3Client(opt, emitter);
 		logger.debug('get ' + key + ' from ' + final_key);
 
-		const params: any = {
+		const params: GetObjectCommandInput = {
 			Bucket: bucket,
 			Key: final_key,
 		};
@@ -188,7 +201,7 @@ export class AWSS3Provider implements StorageProvider {
 					},
 					`Download success for ${key}`
 				);
-				return response;
+				return response as StorageGetOutput<T>;
 			} catch (error) {
 				dispatchStorageEvent(
 					track,
@@ -204,13 +217,14 @@ export class AWSS3Provider implements StorageProvider {
 			}
 		}
 
-		params.Expires = expires || 900; // Default is 15 mins as defined in V2 AWS SDK
+		// params.Expires = expires || 900; // Default is 15 mins as defined in V2 AWS SDK
 
 		try {
 			const signer = new S3RequestPresigner({ ...s3.config });
 			const request = await createRequest(s3, new GetObjectCommand(params));
+			// const haha = getSignedUrl(s3, new GetObjectCommand(params), { expiresIn: expires || 900 });
 			const url = formatUrl(
-				(await signer.presign(request, { expiresIn: params.Expires })) as any
+				(await signer.presign(request, { expiresIn: expires || 900 })) as any
 			);
 			dispatchStorageEvent(
 				track,
@@ -219,7 +233,7 @@ export class AWSS3Provider implements StorageProvider {
 				null,
 				`Signed URL: ${url}`
 			);
-			return url;
+			return url as StorageGetOutput<T>;
 		} catch (error) {
 			logger.warn('get signed url error', error);
 			dispatchStorageEvent(
@@ -283,9 +297,9 @@ export class AWSS3Provider implements StorageProvider {
 		if (contentDisposition) {
 			params.ContentDisposition = contentDisposition;
 		}
-		if (expires) {
-			params.Expires = expires;
-		}
+		// if (expires) {
+		// 	params.Expires = expires;
+		// }
 		if (metadata) {
 			params.Metadata = metadata;
 		}

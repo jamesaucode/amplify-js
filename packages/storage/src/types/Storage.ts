@@ -16,6 +16,17 @@
 export interface StorageOptions {
 	bucket?: string;
 	region?: string;
-	level?: string;
+	level?: StorageLevel;
 	credentials?: object;
 }
+
+export interface CustomPrefix {
+	public?: string;
+	private?: string;
+	protected?: string;
+}
+
+/**
+ * Storage level options
+ */
+export type StorageLevel = 'public' | 'protected' | 'private';
