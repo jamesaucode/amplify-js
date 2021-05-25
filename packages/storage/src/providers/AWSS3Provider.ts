@@ -22,11 +22,18 @@ import {
 	GetObjectCommand,
 	DeleteObjectCommand,
 	ListObjectsCommand,
+	GetObjectRequest,
+	GetObjectCommandOutput,
 } from '@aws-sdk/client-s3';
 import { formatUrl } from '@aws-sdk/util-format-url';
 import { createRequest } from '@aws-sdk/util-create-request';
 import { S3RequestPresigner } from '@aws-sdk/s3-request-presigner';
-import { StorageOptions, StorageProvider } from '../types';
+import {
+	StorageOptions,
+	StorageProvider,
+	S3ProviderGetOptions,
+	S3ProviderGetOuput,
+} from '../types';
 import { AxiosHttpHandler } from './axios-http-handler';
 import { AWSS3ProviderManagedUpload } from './AWSS3ProviderManagedUpload';
 import * as events from 'events';
@@ -68,8 +75,8 @@ const localTestingStorageEndpoint = 'http://localhost:20005';
  * Provide storage methods to use AWS S3
  */
 export class AWSS3Provider implements StorageProvider {
-	static CATEGORY = 'Storage';
-	static PROVIDER_NAME = 'AWSS3';
+	static readonly CATEGORY = 'Storage';
+	static readonly PROVIDER_NAME = 'AWSS3';
 	/**
 	 * @private
 	 */
@@ -121,13 +128,14 @@ export class AWSS3Provider implements StorageProvider {
 	 * @param {Object} [config] - { level : private|protected|public, download: true|false }
 	 * @return - A promise resolves to Amazon S3 presigned URL on success
 	 */
-	public async get(key: string, config?): Promise<string | Object> {
+	public async get<T extends S3ProviderGetOptions>(key: string, config?: T): Promise<S3ProviderGetOuput<T>>
+	public async get(key: string, config?: S3ProviderGetOptions): Promise<string | GetObjectCommandOutput> {
 		const credentialsOK = await this._ensureCredentials();
 		if (!credentialsOK) {
 			return Promise.reject('No credentials');
 		}
 
-		const opt = Object.assign({}, this._config, config);
+		const opt: S3ProviderGetOptions = Object.assign({}, this._config, config);
 		const {
 			bucket,
 			download,
@@ -144,7 +152,7 @@ export class AWSS3Provider implements StorageProvider {
 		const s3 = this._createNewS3Client(opt);
 		logger.debug('get ' + key + ' from ' + final_key);
 
-		const params: any = {
+		const params: GetObjectRequest = {
 			Bucket: bucket,
 			Key: final_key,
 		};
@@ -186,13 +194,11 @@ export class AWSS3Provider implements StorageProvider {
 			}
 		}
 
-		params.Expires = expires || 900; // Default is 15 mins as defined in V2 AWS SDK
-
 		try {
 			const signer = new S3RequestPresigner({ ...s3.config });
 			const request = await createRequest(s3, new GetObjectCommand(params));
 			const url = formatUrl(
-				(await signer.presign(request, { expiresIn: params.Expires })) as any
+				(await signer.presign(request, { expiresIn: expires || 900 })) as any
 			);
 			dispatchStorageEvent(
 				track,
