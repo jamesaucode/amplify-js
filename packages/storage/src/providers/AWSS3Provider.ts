@@ -24,6 +24,7 @@ import {
 	ListObjectsCommand,
 	GetObjectRequest,
 	GetObjectCommandOutput,
+	PutObjectRequest,
 } from '@aws-sdk/client-s3';
 import { formatUrl } from '@aws-sdk/util-format-url';
 import { createRequest } from '@aws-sdk/util-create-request';
@@ -33,6 +34,7 @@ import {
 	StorageProvider,
 	S3ProviderGetOptions,
 	S3ProviderGetOuput,
+	S3ProviderPutOptions,
 } from '../types';
 import { AxiosHttpHandler } from './axios-http-handler';
 import { AWSS3ProviderManagedUpload } from './AWSS3ProviderManagedUpload';
@@ -128,8 +130,14 @@ export class AWSS3Provider implements StorageProvider {
 	 * @param {Object} [config] - { level : private|protected|public, download: true|false }
 	 * @return - A promise resolves to Amazon S3 presigned URL on success
 	 */
-	public async get<T extends S3ProviderGetOptions>(key: string, config?: T): Promise<S3ProviderGetOuput<T>>
-	public async get(key: string, config?: S3ProviderGetOptions): Promise<string | GetObjectCommandOutput> {
+	public async get<T extends S3ProviderGetOptions>(
+		key: string,
+		config?: T
+	): Promise<S3ProviderGetOuput<T>>;
+	public async get(
+		key: string,
+		config?: S3ProviderGetOptions
+	): Promise<string | GetObjectCommandOutput> {
 		const credentialsOK = await this._ensureCredentials();
 		if (!credentialsOK) {
 			return Promise.reject('No credentials');
@@ -229,13 +237,17 @@ export class AWSS3Provider implements StorageProvider {
 	 *  progressCallback: function }
 	 * @return - promise resolves to object on success
 	 */
-	public async put(key: string, object, config?): Promise<Object> {
+	public async put(
+		key: string,
+		object: PutObjectRequest['Body'],
+		config?: S3ProviderPutOptions
+	): Promise<Object> {
 		const credentialsOK = await this._ensureCredentials();
 		if (!credentialsOK) {
 			return Promise.reject('No credentials');
 		}
 
-		const opt = Object.assign({}, this._config, config);
+		const opt: S3ProviderPutOptions = Object.assign({}, this._config, config);
 		const { bucket, track, progressCallback } = opt;
 		const {
 			contentType,
@@ -247,20 +259,13 @@ export class AWSS3Provider implements StorageProvider {
 			tagging,
 			acl,
 		} = opt;
-		const {
-			serverSideEncryption,
-			SSECustomerAlgorithm,
-			SSECustomerKey,
-			SSECustomerKeyMD5,
-			SSEKMSKeyId,
-		} = opt;
 		const type = contentType ? contentType : 'binary/octet-stream';
 
 		const prefix = this._prefix(opt);
 		const final_key = prefix + key;
 		logger.debug('put ' + key + ' to ' + final_key);
 
-		const params: any = {
+		const params: PutObjectRequest = {
 			Bucket: bucket,
 			Key: final_key,
 			Body: object,
@@ -284,8 +289,17 @@ export class AWSS3Provider implements StorageProvider {
 		if (tagging) {
 			params.Tagging = tagging;
 		}
-		if (serverSideEncryption) {
-			params.ServerSideEncryption = serverSideEncryption;
+		if ('serverSideEncryption' in opt) {
+			const {
+				serverSideEncryption,
+				SSECustomerAlgorithm,
+				SSECustomerKey,
+				SSECustomerKeyMD5,
+				SSEKMSKeyId,
+			} = opt;
+			if (serverSideEncryption) {
+				params.ServerSideEncryption = serverSideEncryption;
+			}
 			if (SSECustomerAlgorithm) {
 				params.SSECustomerAlgorithm = SSECustomerAlgorithm;
 			}
@@ -472,7 +486,7 @@ export class AWSS3Provider implements StorageProvider {
 
 				return true;
 			})
-			.catch(error => {
+			.catch((error: Error) => {
 				logger.warn('ensure credentials error', error);
 				return false;
 			});
@@ -512,7 +526,7 @@ export class AWSS3Provider implements StorageProvider {
 	/**
 	 * @private creates an S3 client with new V3 aws sdk
 	 */
-	private _createNewS3Client(config, emitter?) {
+	private _createNewS3Client(config, emitter?: events.EventEmitter) {
 		const {
 			region,
 			credentials,
