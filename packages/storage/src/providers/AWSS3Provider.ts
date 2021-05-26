@@ -39,7 +39,7 @@ import {
 	S3ProviderPutOptions,
 	S3ProviderRemoveOptions,
 	StorageListOptions,
-    S3ProviderListOutput,
+	S3ProviderListOutput,
 } from '../types';
 import { AxiosHttpHandler } from './axios-http-handler';
 import { AWSS3ProviderManagedUpload } from './AWSS3ProviderManagedUpload';
@@ -424,7 +424,10 @@ export class AWSS3Provider implements StorageProvider {
 	 * @param {Object} [config] - { level : private|protected|public }
 	 * @return - Promise resolves to list of keys for all objects in path
 	 */
-	public async list(path: string, config?: StorageListOptions): Promise<S3ProviderListOutput[]> {
+	public async list(
+		path: string,
+		config?: StorageListOptions
+	): Promise<S3ProviderListOutput[]> {
 		const credentialsOK = await this._ensureCredentials();
 		if (!credentialsOK) {
 			return Promise.reject('No credentials');

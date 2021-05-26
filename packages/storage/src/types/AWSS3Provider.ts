@@ -11,6 +11,7 @@ export interface StorageGetOptions {
 	download?: boolean;
 	track?: boolean;
 	expires?: number;
+	provider?: string;
 }
 
 /** Get API options allowed to be passed to the underlying S3Client */
