@@ -2,6 +2,7 @@ import {
 	GetObjectRequest,
 	GetObjectCommandOutput,
 	PutObjectRequest,
+	_Object,
 } from '@aws-sdk/client-s3';
 import { StorageOptions } from './Storage';
 
@@ -33,6 +34,7 @@ export type S3ProviderGetOptions = StorageGetOptions &
 /** Put API options, specific to Amplify Storage */
 export interface StoragePutOptions {
 	progressCallback?: (progress: any) => any;
+	track?: boolean;
 }
 
 /** Put API options allowed to be passed to the underlying S3Client */
@@ -61,3 +63,23 @@ export type S3ProviderPutOptions =
 	| (StoragePutOptions &
 			S3ClientPutOptions &
 			S3ClientServerSideEncryptionOptions);
+
+export interface StorageRemoveOptions {
+	bucket?: string;
+	track?: boolean;
+}
+
+export type S3ProviderRemoveOptions = StorageRemoveOptions;
+
+export interface StorageListOptions {
+	bucket?: string;
+	track?: boolean;
+	maxKeys?: number;
+}
+
+export interface S3ProviderListOutput {
+	key: _Object['Key'];
+	eTag: _Object['ETag'];
+	lastModified: _Object['LastModified'];
+	size: _Object['Size'];
+}

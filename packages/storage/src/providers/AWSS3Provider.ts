@@ -21,10 +21,12 @@ import {
 	S3Client,
 	GetObjectCommand,
 	DeleteObjectCommand,
+	DeleteObjectCommandOutput,
 	ListObjectsCommand,
 	GetObjectRequest,
 	GetObjectCommandOutput,
 	PutObjectRequest,
+	DeleteObjectCommandInput,
 } from '@aws-sdk/client-s3';
 import { formatUrl } from '@aws-sdk/util-format-url';
 import { createRequest } from '@aws-sdk/util-create-request';
@@ -35,6 +37,9 @@ import {
 	S3ProviderGetOptions,
 	S3ProviderGetOuput,
 	S3ProviderPutOptions,
+	S3ProviderRemoveOptions,
+	StorageListOptions,
+    S3ProviderListOutput,
 } from '../types';
 import { AxiosHttpHandler } from './axios-http-handler';
 import { AWSS3ProviderManagedUpload } from './AWSS3ProviderManagedUpload';
@@ -367,7 +372,10 @@ export class AWSS3Provider implements StorageProvider {
 	 * @param {Object} [config] - { level : private|protected|public }
 	 * @return - Promise resolves upon successful removal of the object
 	 */
-	public async remove(key: string, config?): Promise<any> {
+	public async remove(
+		key: string,
+		config?: S3ProviderRemoveOptions
+	): Promise<DeleteObjectCommandOutput> {
 		const credentialsOK = await this._ensureCredentials();
 		if (!credentialsOK) {
 			return Promise.reject('No credentials');
@@ -381,7 +389,7 @@ export class AWSS3Provider implements StorageProvider {
 		const s3 = this._createNewS3Client(opt);
 		logger.debug('remove ' + key + ' from ' + final_key);
 
-		const params = {
+		const params: DeleteObjectCommandInput = {
 			Bucket: bucket,
 			Key: final_key,
 		};
@@ -416,13 +424,13 @@ export class AWSS3Provider implements StorageProvider {
 	 * @param {Object} [config] - { level : private|protected|public }
 	 * @return - Promise resolves to list of keys for all objects in path
 	 */
-	public async list(path, config?): Promise<any> {
+	public async list(path: string, config?: StorageListOptions): Promise<S3ProviderListOutput[]> {
 		const credentialsOK = await this._ensureCredentials();
 		if (!credentialsOK) {
 			return Promise.reject('No credentials');
 		}
 
-		const opt = Object.assign({}, this._config, config);
+		const opt: StorageListOptions = Object.assign({}, this._config, config);
 		const { bucket, track, maxKeys } = opt;
 
 		const prefix = this._prefix(opt);
@@ -440,7 +448,7 @@ export class AWSS3Provider implements StorageProvider {
 
 		try {
 			const response = await s3.send(listObjectsCommand);
-			let list = [];
+			let list: S3ProviderListOutput[] = [];
 			if (response && response.Contents) {
 				list = response.Contents.map(item => {
 					return {
