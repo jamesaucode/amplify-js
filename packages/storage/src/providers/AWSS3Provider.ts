@@ -40,6 +40,8 @@ import {
 	S3ProviderRemoveOptions,
 	StorageListOptions,
 	S3ProviderListOutput,
+	S3ProviderListOptions,
+	S3ProviderPutOutput,
 } from '../types';
 import { AxiosHttpHandler } from './axios-http-handler';
 import { AWSS3ProviderManagedUpload } from './AWSS3ProviderManagedUpload';
@@ -131,9 +133,10 @@ export class AWSS3Provider implements StorageProvider {
 	/**
 	 * Get a presigned URL of the file or the object data when download:true
 	 *
-	 * @param {string} key - key of the object
-	 * @param {Object} [config] - { level : private|protected|public, download: true|false }
-	 * @return - A promise resolves to Amazon S3 presigned URL on success
+	 * @param key - key of the object
+	 * @param [config] - { level : private|protected|public, download: true|false }
+	 * @return - A promise resolves to Amazon S3 presigned URL or the GetObjectCommandOutput if download is set to true on
+	 * success
 	 */
 	public async get<T extends S3ProviderGetOptions>(
 		key: string,
@@ -244,9 +247,9 @@ export class AWSS3Provider implements StorageProvider {
 	 */
 	public async put(
 		key: string,
-		object: PutObjectRequest['Body'],
+		object: PutObjectRequest['Body'] | string,
 		config?: S3ProviderPutOptions
-	): Promise<Object> {
+	): Promise<S3ProviderPutOutput> {
 		const credentialsOK = await this._ensureCredentials();
 		if (!credentialsOK) {
 			return Promise.reject('No credentials');
@@ -273,7 +276,7 @@ export class AWSS3Provider implements StorageProvider {
 		const params: PutObjectRequest = {
 			Bucket: bucket,
 			Key: final_key,
-			Body: object,
+			Body: object as PutObjectRequest['Body'],
 			ContentType: type,
 		};
 		if (cacheControl) {
@@ -426,7 +429,7 @@ export class AWSS3Provider implements StorageProvider {
 	 */
 	public async list(
 		path: string,
-		config?: StorageListOptions
+		config?: S3ProviderListOptions
 	): Promise<S3ProviderListOutput[]> {
 		const credentialsOK = await this._ensureCredentials();
 		if (!credentialsOK) {

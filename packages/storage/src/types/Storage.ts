@@ -18,6 +18,14 @@ export interface StorageOptions {
 	region?: string;
 	level?: StorageLevel;
 	credentials?: object;
+	customPrefix?: CustomPrefix;
+	track?: boolean;
+}
+
+export interface CustomPrefix {
+	public?: string;
+	protected?: string;
+	private?: string;
 }
 
 export type StorageLevel = 'public' | 'protected' | 'private';

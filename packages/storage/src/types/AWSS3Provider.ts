@@ -60,17 +60,22 @@ export interface S3ClientServerSideEncryptionOptions {
 }
 
 export type S3ProviderPutOptions =
-	| (StoragePutOptions & S3ClientPutOptions)
+	| (StoragePutOptions & S3ClientPutOptions & StorageOptions)
 	| (StoragePutOptions &
 			S3ClientPutOptions &
-			S3ClientServerSideEncryptionOptions);
+			S3ClientServerSideEncryptionOptions &
+			StorageOptions);
+
+export interface S3ProviderPutOutput {
+	key: string;
+}
 
 export interface StorageRemoveOptions {
 	bucket?: string;
 	track?: boolean;
 }
 
-export type S3ProviderRemoveOptions = StorageRemoveOptions;
+export type S3ProviderRemoveOptions = StorageRemoveOptions & StorageOptions;
 
 export interface StorageListOptions {
 	bucket?: string;
@@ -84,3 +89,5 @@ export interface S3ProviderListOutput {
 	lastModified: _Object['LastModified'];
 	size: _Object['Size'];
 }
+
+export type S3ProviderListOptions = StorageListOptions & StorageOptions;
