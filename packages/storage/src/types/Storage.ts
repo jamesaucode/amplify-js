@@ -22,10 +22,8 @@ export interface StorageOptions {
 	track?: boolean;
 }
 
-export interface CustomPrefix {
-	public?: string;
-	protected?: string;
-	private?: string;
-}
-
 export type StorageLevel = 'public' | 'protected' | 'private';
+
+export type CustomPrefix = {
+	[key in StorageLevel]?: string
+}
