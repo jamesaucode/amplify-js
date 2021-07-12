@@ -2,7 +2,6 @@
 
 <!-- Auto Generated Below -->
 
-
 ## Properties
 
 | Property            | Attribute  | Description                                                 | Type                                                                                                                                                                                                                 | Default     |
@@ -13,13 +12,11 @@
 | `type`              | `type`     | Type of the button: 'button', 'submit' or 'reset'           | `"button" \| "reset" \| "submit"`                                                                                                                                                                                    | `'button'`  |
 | `variant`           | `variant`  | Variant of a button: 'button' \| 'anchor \| 'icon'          | `"anchor" \| "button" \| "icon"`                                                                                                                                                                                     | `'button'`  |
 
-
 ## Slots
 
 | Slot          | Description                      |
 | ------------- | -------------------------------- |
 | `"(default)"` | content placed within the button |
-
 
 ## CSS Custom Properties
 
@@ -29,6 +26,7 @@
 | `--background-color-active`  | Background color of the button when it's active          |
 | `--background-color-disable` | Background color of the button when it's disabled        |
 | `--border-color`             | Border color of the button                               |
+| `--border-radius`            | Border radius of the button                              |
 | `--border-style`             | Border style of the button                               |
 | `--border-width`             | Border width of the button                               |
 | `--color`                    | Text color within the button                             |
@@ -41,29 +39,29 @@
 | `--text-transform`           | Text capitalization transform within the button          |
 | `--width`                    | Width of the button                                      |
 
-
 ## Dependencies
 
 ### Used by
 
- - [amplify-chatbot](../amplify-chatbot)
- - [amplify-confirm-sign-in](../amplify-confirm-sign-in)
- - [amplify-confirm-sign-up](../amplify-confirm-sign-up)
- - [amplify-forgot-password](../amplify-forgot-password)
- - [amplify-form-section](../amplify-form-section)
- - [amplify-photo-picker](../amplify-photo-picker)
- - [amplify-picker](../amplify-picker)
- - [amplify-require-new-password](../amplify-require-new-password)
- - [amplify-sign-in](../amplify-sign-in)
- - [amplify-sign-out](../amplify-sign-out)
- - [amplify-sign-up](../amplify-sign-up)
- - [amplify-verify-contact](../amplify-verify-contact)
+- [amplify-chatbot](../amplify-chatbot)
+- [amplify-confirm-sign-in](../amplify-confirm-sign-in)
+- [amplify-confirm-sign-up](../amplify-confirm-sign-up)
+- [amplify-forgot-password](../amplify-forgot-password)
+- [amplify-form-section](../amplify-form-section)
+- [amplify-photo-picker](../amplify-photo-picker)
+- [amplify-picker](../amplify-picker)
+- [amplify-require-new-password](../amplify-require-new-password)
+- [amplify-sign-in](../amplify-sign-in)
+- [amplify-sign-out](../amplify-sign-out)
+- [amplify-sign-up](../amplify-sign-up)
+- [amplify-verify-contact](../amplify-verify-contact)
 
 ### Depends on
 
 - [amplify-icon](../amplify-icon)
 
 ### Graph
+
 ```mermaid
 graph TD;
   amplify-button --> amplify-icon
@@ -82,6 +80,6 @@ graph TD;
   style amplify-button fill:#f9f,stroke:#333,stroke-width:4px
 ```
 
-----------------------------------------------
+---
 
-*Built with [StencilJS](https://stenciljs.com/)*
+_Built with [StencilJS](https://stenciljs.com/)_

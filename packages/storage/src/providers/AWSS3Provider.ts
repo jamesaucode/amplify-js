@@ -27,6 +27,9 @@ import {
 	GetObjectCommandOutput,
 	PutObjectRequest,
 	DeleteObjectCommandInput,
+	CopyObjectCommandInput,
+	CopyObjectCommand,
+	PutObjectCommandInput,
 } from '@aws-sdk/client-s3';
 import { formatUrl } from '@aws-sdk/util-format-url';
 import { createRequest } from '@aws-sdk/util-create-request';
@@ -42,7 +45,12 @@ import {
 	S3ProviderListOutput,
 	S3ProviderListOptions,
 	S3ProviderPutOutput,
+	CopyObjectConfig,
+	CopyResult,
+	S3CopySource,
+	S3CopyDestination,
 } from '../types';
+import { StorageErrorStrings } from '../common/StorageErrorStrings';
 import { AxiosHttpHandler } from './axios-http-handler';
 import { AWSS3ProviderManagedUpload } from './AWSS3ProviderManagedUpload';
 import * as events from 'events';
@@ -53,6 +61,8 @@ const AMPLIFY_SYMBOL = (typeof Symbol !== 'undefined' &&
 typeof Symbol.for === 'function'
 	? Symbol.for('amplify_default')
 	: '@@amplify_default') as Symbol;
+const SET_CONTENT_LENGTH_HEADER = 'contentLengthMiddleware';
+const DEFAULT_STORAGE_LEVEL = 'public';
 
 const dispatchStorageEvent = (
 	track: boolean,
@@ -131,6 +141,124 @@ export class AWSS3Provider implements StorageProvider {
 	}
 
 	/**
+	 * Copy an object from a source object to a new object within the same bucket. Can optionally copy files across
+	 * different level or identityId (if source object's level is 'protected').
+	 *
+	 * @async
+	 * @param {S3CopySource} src - Key and optionally access level and identityId of the source object.
+	 * @param {S3CopyDestination} dest - Key and optionally access level of the destination object.
+	 * @param {CopyObjectConfig} [config] - Optional configuration for s3 commands.
+	 * @return {Promise<CopyResult>} The key of the copied object.
+	 */
+	public async copy(
+		src: S3CopySource,
+		dest: S3CopyDestination,
+		config?: CopyObjectConfig
+	): Promise<CopyResult> {
+		const credentialsOK = await this._ensureCredentials();
+		if (!credentialsOK) {
+			return Promise.reject(new Error(StorageErrorStrings.NO_CREDENTIALS));
+		}
+		const opt: CopyObjectConfig = Object.assign({}, this._config, config);
+		const {
+			acl,
+			bucket,
+			cacheControl,
+			expires,
+			track,
+			serverSideEncryption,
+			SSECustomerAlgorithm,
+			SSECustomerKey,
+			SSECustomerKeyMD5,
+			SSEKMSKeyId,
+		} = opt;
+		const {
+			level: srcLevel = DEFAULT_STORAGE_LEVEL,
+			identityId: srcIdentityId,
+			key: srcKey,
+		} = src;
+		const { level: destLevel = DEFAULT_STORAGE_LEVEL, key: destKey } = dest;
+		if (!srcKey || typeof srcKey !== 'string') {
+			throw new Error(StorageErrorStrings.NO_SRC_KEY);
+		}
+		if (!destKey || typeof destKey !== 'string') {
+			throw new Error(StorageErrorStrings.NO_DEST_KEY);
+		}
+		if (srcLevel !== 'protected' && srcIdentityId) {
+			logger.warn(
+				`You may copy files from another user if the source level is "protected", currently it's ${srcLevel}`
+			);
+		}
+		const srcPrefix = this._prefix({
+			...opt,
+			level: srcLevel,
+			...(srcIdentityId && { identityId: srcIdentityId }),
+		});
+		const destPrefix = this._prefix({ ...opt, level: destLevel });
+		const finalSrcKey = `${bucket}/${srcPrefix}${srcKey}`;
+		const finalDestKey = `${destPrefix}${destKey}`;
+		logger.debug(`copying ${finalSrcKey} to ${finalDestKey}`);
+
+		const params: CopyObjectCommandInput = {
+			Bucket: bucket,
+			CopySource: finalSrcKey,
+			Key: finalDestKey,
+			// Copies over metadata like contentType as well
+			MetadataDirective: 'COPY',
+		};
+
+		if (cacheControl) params.CacheControl = cacheControl;
+		if (expires) params.Expires = expires;
+		if (serverSideEncryption) {
+			params.ServerSideEncryption = serverSideEncryption;
+		}
+		if (SSECustomerAlgorithm) {
+			params.SSECustomerAlgorithm = SSECustomerAlgorithm;
+		}
+		if (SSECustomerKey) {
+			params.SSECustomerKey = SSECustomerKey;
+		}
+		if (SSECustomerKeyMD5) {
+			params.SSECustomerKeyMD5 = SSECustomerKeyMD5;
+		}
+		if (SSEKMSKeyId) {
+			params.SSEKMSKeyId = SSEKMSKeyId;
+		}
+		if (acl) params.ACL = acl;
+
+		const s3 = this._createNewS3Client(opt);
+		s3.middlewareStack.remove(SET_CONTENT_LENGTH_HEADER);
+		try {
+			await s3.send(new CopyObjectCommand(params));
+			dispatchStorageEvent(
+				track,
+				'copy',
+				{
+					method: 'copy',
+					result: 'success',
+				},
+				null,
+				`Copy success from ${srcKey} to ${destKey}`
+			);
+			return {
+				key: destKey,
+			};
+		} catch (error) {
+			dispatchStorageEvent(
+				track,
+				'copy',
+				{
+					method: 'copy',
+					result: 'failed',
+				},
+				null,
+				`Copy failed from ${srcKey} to ${destKey}`
+			);
+			throw error;
+		}
+	}
+
+	/**
 	 * Get a presigned URL of the file or the object data when download:true
 	 *
 	 * @param key - key of the object
@@ -148,7 +276,7 @@ export class AWSS3Provider implements StorageProvider {
 	): Promise<string | GetObjectCommandOutput> {
 		const credentialsOK = await this._ensureCredentials();
 		if (!credentialsOK) {
-			return Promise.reject('No credentials');
+			return Promise.reject(StorageErrorStrings.NO_CREDENTIALS);
 		}
 
 		const opt: S3ProviderGetOptions = Object.assign({}, this._config, config);
@@ -162,6 +290,9 @@ export class AWSS3Provider implements StorageProvider {
 			contentType,
 			expires,
 			track,
+			SSECustomerAlgorithm,
+			SSECustomerKey,
+			SSECustomerKeyMD5,
 		} = opt;
 		const prefix = this._prefix(opt);
 		const final_key = prefix + key;
@@ -180,6 +311,15 @@ export class AWSS3Provider implements StorageProvider {
 		if (contentEncoding) params.ResponseContentEncoding = contentEncoding;
 		if (contentLanguage) params.ResponseContentLanguage = contentLanguage;
 		if (contentType) params.ResponseContentType = contentType;
+		if (SSECustomerAlgorithm) {
+			params.SSECustomerAlgorithm = SSECustomerAlgorithm;
+		}
+		if (SSECustomerKey) {
+			params.SSECustomerKey = SSECustomerKey;
+		}
+		if (SSECustomerKeyMD5) {
+			params.SSECustomerKeyMD5 = SSECustomerKeyMD5;
+		}
 
 		if (download === true) {
 			const getObjectCommand = new GetObjectCommand(params);
@@ -252,7 +392,7 @@ export class AWSS3Provider implements StorageProvider {
 	): Promise<S3ProviderPutOutput> {
 		const credentialsOK = await this._ensureCredentials();
 		if (!credentialsOK) {
-			return Promise.reject('No credentials');
+			return Promise.reject(StorageErrorStrings.NO_CREDENTIALS);
 		}
 
 		const opt: S3ProviderPutOptions = Object.assign({}, this._config, config);
@@ -267,13 +407,20 @@ export class AWSS3Provider implements StorageProvider {
 			tagging,
 			acl,
 		} = opt;
+		const {
+			serverSideEncryption,
+			SSECustomerAlgorithm,
+			SSECustomerKey,
+			SSECustomerKeyMD5,
+			SSEKMSKeyId,
+		} = opt;
 		const type = contentType ? contentType : 'binary/octet-stream';
 
 		const prefix = this._prefix(opt);
 		const final_key = prefix + key;
 		logger.debug('put ' + key + ' to ' + final_key);
 
-		const params: PutObjectRequest = {
+		const params: PutObjectCommandInput = {
 			Bucket: bucket,
 			Key: final_key,
 			Body: object as PutObjectRequest['Body'],
@@ -297,29 +444,20 @@ export class AWSS3Provider implements StorageProvider {
 		if (tagging) {
 			params.Tagging = tagging;
 		}
-		if ('serverSideEncryption' in opt) {
-			const {
-				serverSideEncryption,
-				SSECustomerAlgorithm,
-				SSECustomerKey,
-				SSECustomerKeyMD5,
-				SSEKMSKeyId,
-			} = opt;
-			if (serverSideEncryption) {
-				params.ServerSideEncryption = serverSideEncryption;
-			}
-			if (SSECustomerAlgorithm) {
-				params.SSECustomerAlgorithm = SSECustomerAlgorithm;
-			}
-			if (SSECustomerKey) {
-				params.SSECustomerKey = SSECustomerKey;
-			}
-			if (SSECustomerKeyMD5) {
-				params.SSECustomerKeyMD5 = SSECustomerKeyMD5;
-			}
-			if (SSEKMSKeyId) {
-				params.SSEKMSKeyId = SSEKMSKeyId;
-			}
+		if (serverSideEncryption) {
+			params.ServerSideEncryption = serverSideEncryption;
+		}
+		if (SSECustomerAlgorithm) {
+			params.SSECustomerAlgorithm = SSECustomerAlgorithm;
+		}
+		if (SSECustomerKey) {
+			params.SSECustomerKey = SSECustomerKey;
+		}
+		if (SSECustomerKeyMD5) {
+			params.SSECustomerKeyMD5 = SSECustomerKeyMD5;
+		}
+		if (SSEKMSKeyId) {
+			params.SSEKMSKeyId = SSEKMSKeyId;
 		}
 
 		const emitter = new events.EventEmitter();
@@ -330,18 +468,18 @@ export class AWSS3Provider implements StorageProvider {
 		}
 
 		try {
-			emitter.on('sendProgress', progress => {
-				if (progressCallback) {
-					if (typeof progressCallback === 'function') {
+			if (progressCallback) {
+				if (typeof progressCallback === 'function') {
+					emitter.on('sendProgress', progress => {
 						progressCallback(progress);
-					} else {
-						logger.warn(
-							'progressCallback should be a function, not a ' +
-								typeof progressCallback
-						);
-					}
+					});
+				} else {
+					logger.warn(
+						'progressCallback should be a function, not a ' +
+							typeof progressCallback
+					);
 				}
-			});
+			}
 
 			const response = await uploader.upload();
 
@@ -381,7 +519,7 @@ export class AWSS3Provider implements StorageProvider {
 	): Promise<DeleteObjectCommandOutput> {
 		const credentialsOK = await this._ensureCredentials();
 		if (!credentialsOK) {
-			return Promise.reject('No credentials');
+			return Promise.reject(StorageErrorStrings.NO_CREDENTIALS);
 		}
 
 		const opt = Object.assign({}, this._config, config);
@@ -433,7 +571,7 @@ export class AWSS3Provider implements StorageProvider {
 	): Promise<S3ProviderListOutput[]> {
 		const credentialsOK = await this._ensureCredentials();
 		if (!credentialsOK) {
-			return Promise.reject('No credentials');
+			return Promise.reject(StorageErrorStrings.NO_CREDENTIALS);
 		}
 
 		const opt: StorageListOptions = Object.assign({}, this._config, config);
@@ -509,7 +647,7 @@ export class AWSS3Provider implements StorageProvider {
 	/**
 	 * @private
 	 */
-	private _prefix(config) {
+	private _prefix(config): string {
 		const { credentials, level } = config;
 
 		const customPrefix = config.customPrefix || {};
@@ -566,6 +704,10 @@ export class AWSS3Provider implements StorageProvider {
 			requestHandler: new AxiosHttpHandler({}, emitter, cancelTokenSource),
 		});
 		return s3client;
+	}
+
+	private _isBlob(x: unknown): x is Blob {
+		return typeof Blob !== 'undefined' && x instanceof Blob;
 	}
 }
 

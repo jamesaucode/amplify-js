@@ -22,6 +22,7 @@ export type UserSchema = {
 	models: SchemaModels;
 	nonModels?: SchemaNonModels;
 	relationships?: RelationshipType;
+	keys?: ModelKeys;
 	enums: SchemaEnums;
 	modelTopologicalOrdering?: Map<string, string[]>;
 };
@@ -40,9 +41,6 @@ export type SchemaModel = {
 	attributes?: ModelAttributes;
 	fields: ModelFields;
 	syncable?: boolean;
-	compositeKeys?: {
-		[key: string]: string[];
-	};
 };
 export function isSchemaModel(obj: any): obj is SchemaModel {
 	return obj && (<SchemaModel>obj).pluralName !== undefined;
@@ -78,8 +76,16 @@ export function isTargetNameAssociation(
 	return obj && obj.targetName;
 }
 
-type ModelAttributes = ModelAttribute[];
+export type ModelAttributes = ModelAttribute[];
 type ModelAttribute = { type: string; properties?: Record<string, any> };
+
+type ModelAttributeKey = {
+	type: 'key';
+	properties: {
+		name?: string;
+		fields: string[];
+	};
+};
 
 type ModelAttributePrimaryKey = {
 	type: 'key';
@@ -91,30 +97,34 @@ type ModelAttributePrimaryKey = {
 type ModelAttributeCompositeKey = {
 	type: 'key';
 	properties: {
-		name?: string;
+		name: string;
 		fields: [string, string, string, string?, string?];
 	};
 };
 
-export function isModelAttributePrimaryKey(
+export function isModelAttributeKey(
 	attr: ModelAttribute
-): attr is ModelAttributePrimaryKey {
+): attr is ModelAttributeKey {
 	return (
 		attr.type === 'key' &&
 		attr.properties &&
-		attr.properties.name === undefined &&
 		attr.properties.fields &&
 		attr.properties.fields.length > 0
 	);
+}
+
+export function isModelAttributePrimaryKey(
+	attr: ModelAttribute
+): attr is ModelAttributePrimaryKey {
+	return isModelAttributeKey(attr) && attr.properties.name === undefined;
 }
 
 export function isModelAttributeCompositeKey(
 	attr: ModelAttribute
 ): attr is ModelAttributeCompositeKey {
 	return (
-		attr.type === 'key' &&
-		attr.properties &&
-		attr.properties.fields &&
+		isModelAttributeKey(attr) &&
+		attr.properties.name !== undefined &&
 		attr.properties.fields.length > 2
 	);
 }
@@ -277,6 +287,7 @@ type ModelField = {
 		| EnumFieldType;
 	isArray: boolean;
 	isRequired?: boolean;
+	isReadOnly?: boolean;
 	isArrayNullable?: boolean;
 	association?: ModelAssociation;
 	attributes?: ModelAttributes[];
@@ -289,24 +300,48 @@ export type NonModelTypeConstructor<T> = {
 };
 
 // Class for model
-export type PersistentModelConstructor<T extends PersistentModel> = {
-	new (init: ModelInit<T>): T;
-	copyOf(src: T, mutator: (draft: MutableModel<T>) => void): T;
+export type PersistentModelConstructor<
+	T extends PersistentModel,
+	K extends PersistentModelMetaData = {
+		readOnlyFields: 'createdAt' | 'updatedAt';
+	}
+> = {
+	new (init: ModelInit<T, K>): T;
+	copyOf(src: T, mutator: (draft: MutableModel<T, K>) => void): T;
 };
+
 export type TypeConstructorMap = Record<
 	string,
 	PersistentModelConstructor<any> | NonModelTypeConstructor<any>
 >;
 
 // Instance of model
+export type PersistentModelMetaData = {
+	readOnlyFields: string;
+};
+
 export type PersistentModel = Readonly<{ id: string } & Record<string, any>>;
-export type ModelInit<T> = Omit<T, 'id'>;
+export type ModelInit<
+	T,
+	K extends PersistentModelMetaData = {
+		readOnlyFields: 'createdAt' | 'updatedAt';
+	}
+> = Omit<T, 'id' | K['readOnlyFields']>;
 type DeepWritable<T> = {
 	-readonly [P in keyof T]: T[P] extends TypeName<T[P]>
 		? T[P]
 		: DeepWritable<T[P]>;
 };
-export type MutableModel<T> = Omit<DeepWritable<T>, 'id'>;
+
+export type MutableModel<
+	T extends Record<string, any>,
+	K extends PersistentModelMetaData = {
+		readOnlyFields: 'createdAt' | 'updatedAt';
+	}
+	// This provides Intellisense with ALL of the properties, regardless of read-only
+	// but will throw a linting error if trying to overwrite a read-only property
+> = DeepWritable<Omit<T, 'id' | K['readOnlyFields']>> &
+	Readonly<Pick<T, 'id' | K['readOnlyFields']>>;
 
 export type ModelInstanceMetadata = {
 	id: string;
@@ -555,6 +590,18 @@ export type RelationType = {
 
 export type RelationshipType = {
 	[modelName: string]: { indexes: string[]; relationTypes: RelationType[] };
+};
+
+//#endregion
+
+//#region Key type
+export type KeyType = {
+	primaryKey?: string[];
+	compositeKeys?: Set<string>[];
+};
+
+export type ModelKeys = {
+	[modelName: string]: KeyType;
 };
 
 //#endregion

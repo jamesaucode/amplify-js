@@ -27,3 +27,13 @@ export type StorageLevel = 'public' | 'protected' | 'private';
 export type CustomPrefix = {
 	[key in StorageLevel]?: string
 }
+
+export type StorageCopyTarget = {
+	key: string;
+	level?: string;
+	identityId?: string;
+};
+
+export type StorageCopySource = StorageCopyTarget;
+
+export type StorageCopyDestination = Omit<StorageCopyTarget, 'identityId'>;

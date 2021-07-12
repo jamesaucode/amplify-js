@@ -1966,9 +1966,93 @@ export default class CognitoUser {
 	 * This is used for the user to signOut of the application and clear the cached tokens.
 	 * @returns {void}
 	 */
-	signOut() {
+	signOut(revokeTokenCallback) {
+		// If tokens won't be revoked, we just clean the client data.
+		if (!revokeTokenCallback || typeof revokeTokenCallback !== 'function') {
+			this.cleanClientData();
+
+			return;
+		}
+
+		this.getSession((error, _session) => {
+			if (error) {
+				return revokeTokenCallback(error);
+			}
+
+			this.revokeTokens(err => {
+				this.cleanClientData();
+
+				revokeTokenCallback(err);
+			});
+		});
+	}
+
+	revokeTokens(revokeTokenCallback = () => {}) {
+		if (typeof revokeTokenCallback !== 'function') {
+			throw new Error('Invalid revokeTokenCallback. It should be a function.');
+		}
+
+		const tokensToBeRevoked = [];
+
+		if (!this.signInUserSession) {
+			const error = new Error('User is not authenticated');
+
+			return revokeTokenCallback(error);
+		}
+
+		if (!this.signInUserSession.getAccessToken()) {
+			const error = new Error('No Access token available');
+
+			return revokeTokenCallback(error);
+		}
+
+		const refreshToken = this.signInUserSession.getRefreshToken().getToken();
+		const accessToken = this.signInUserSession.getAccessToken();
+
+		if (this.isSessionRevocable(accessToken)) {
+			if (refreshToken) {
+				return this.revokeToken({
+					token: refreshToken,
+					callback: revokeTokenCallback,
+				});
+			}
+		}
+		revokeTokenCallback();
+	}
+
+	isSessionRevocable(token) {
+		if (token && typeof token.decodePayload === 'function') {
+			try {
+				const { origin_jti } = token.decodePayload();
+				return !!origin_jti;
+			} catch (err) {
+				// Nothing to do, token doesnt have origin_jti claim
+			}
+		}
+
+		return false;
+	}
+
+	cleanClientData() {
 		this.signInUserSession = null;
 		this.clearCachedUser();
+	}
+
+	revokeToken({ token, callback }) {
+		this.client.requestWithRetry(
+			'RevokeToken',
+			{
+				Token: token,
+				ClientId: this.pool.getClientId(),
+			},
+			err => {
+				if (err) {
+					return callback(err);
+				}
+
+				callback();
+			}
+		);
 	}
 
 	/**

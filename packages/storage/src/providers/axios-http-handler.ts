@@ -133,9 +133,9 @@ export class AxiosHttpHandler implements HttpHandler {
 
 		// From gamma release, aws-sdk now expects all response type to be of blob or streams
 		axiosRequest.responseType = 'blob';
-		
+
 		// In Axios, Blobs are identified by calling Object.prototype.toString on the object. However, on React Native,
-		// calling Object.prototype.toString on a Blob returns '[object Object]' instead of '[object Blob]', which causes 
+		// calling Object.prototype.toString on a Blob returns '[object Object]' instead of '[object Blob]', which causes
 		// Axios to treat Blobs as generic Javascript objects. Therefore we need a to use a custom request transformer
 		// to correctly handle Blob in React Native.
 		if (Platform.isReactNative) {
@@ -156,7 +156,7 @@ export class AxiosHttpHandler implements HttpHandler {
 				})
 				.catch(error => {
 					// Error
-					logger.error(error);
+					logger.error(error.message);
 					throw error;
 				}),
 			requestTimeout(requestTimeoutInMs),
