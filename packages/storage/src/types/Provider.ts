@@ -35,6 +35,8 @@ export interface StorageProvider {
 	// list objects for the path
 	list(path, options?): Promise<any>;
 
+	listUploads(): Promise<any>;
+
 	// return 'Storage';
 	getCategory(): string;
 

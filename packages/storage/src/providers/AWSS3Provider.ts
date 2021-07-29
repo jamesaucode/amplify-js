@@ -223,6 +223,16 @@ export class AWSS3Provider implements StorageProvider {
 		return task;
 	}
 
+	public async listUploads(config?: any) {
+		const credentialsOK = await this._ensureCredentials();
+		if (!credentialsOK || !this._isWithCredentials(this._config)) {
+			throw new Error(StorageErrorStrings.NO_CREDENTIALS);
+		}
+		const opt = Object.assign({}, this._config, config);
+		const s3 = this._createNewS3Client(opt);
+		return this._uploadTaskManager.listTasks(s3);
+	}
+
 	/**
 	 * Copy an object from a source object to a new object within the same bucket. Can optionally copy files across
 	 * different level or identityId (if source object's level is 'protected').

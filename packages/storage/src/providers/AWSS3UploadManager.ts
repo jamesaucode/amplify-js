@@ -10,7 +10,9 @@ import {
 import { StorageHelper } from '@aws-amplify/core';
 import { StorageLevel } from '../types/Storage';
 
+const idb = window.indexedDB;
 const oneHourInMs = 1000 * 60 * 60;
+const IDB_KEY = 'AmplifyStorageIDB';
 
 type UploadId = string;
 
@@ -45,6 +47,8 @@ const UPLOADS_STORAGE_KEY = '__uploadInProgress';
 export class AWSS3UploadManager {
 	private readonly _storage: Storage;
 	private readonly _uploadTasks: Record<UploadId, AWSS3UploadTask> = {};
+	private readonly _config: any;
+	private readonly _s3Client: S3Client;
 
 	constructor() {
 		this._storage = new StorageHelper().getStorage();
@@ -107,6 +111,104 @@ export class AWSS3UploadManager {
 		} else return '';
 	}
 
+	private _listFilesFromIDB = async () => {
+		return new Promise((res, rej) => {
+			const request = idb.open(IDB_KEY, 2);
+			request.onsuccess = (_e: any) => {
+				const db = request.result;
+				db.onerror = (e: any) => {
+					console.error('Error reating or accessing indexedDB database');
+					rej(e);
+				};
+				const t = db.transaction(['files'], 'readonly');
+				const objStore = t.objectStore('files');
+				const req = objStore.getAll();
+				req.onsuccess = (e: any) => {
+					console.log(e.target.result);
+					res(e.target.result);
+				};
+			};
+		});
+	};
+
+	private _findFileFromIDB = async (fileName: string): Promise<Blob> => {
+		return new Promise((res, rej) => {
+			const request = idb.open(IDB_KEY, 2);
+			request.onsuccess = (_e: any) => {
+				const db = request.result;
+				db.onerror = (e: any) => {
+					console.error('Error reating or accessing indexedDB database');
+					rej(e);
+				};
+
+				db
+					.transaction(['files'], 'readonly')
+					.objectStore('files')
+					.index('file_name')
+					.get(fileName).onsuccess = (e: any) => {
+					res(e.target.result);
+				};
+			};
+		});
+	};
+
+	private _storeFileToIDB = async (input: AddTaskInput) => {
+		return new Promise((res, rej) => {
+			function putFile(db: IDBDatabase, file: Blob) {
+				db
+					.transaction(['files'], 'readwrite')
+					.objectStore('files')
+					.put(file).onsuccess = (e: any) => {
+					res(e);
+				};
+			}
+
+			const request = idb.open(IDB_KEY, 2);
+			request.onsuccess = event => {
+				const db = request.result;
+				db.onerror = _event => {
+					console.error('Error reating or accessing indexedDB database');
+				};
+				putFile(db, input.file);
+			};
+			request.onerror = event => {
+				console.log(event);
+				rej(event);
+			};
+			request.onupgradeneeded = event => {
+				const db = request.result;
+				const objectStore = db.createObjectStore('files', { keyPath: 'name' });
+				objectStore.createIndex('file_name', 'name');
+				objectStore.transaction.oncomplete = event => {
+					putFile(db, input.file);
+				};
+			};
+		});
+	};
+
+	private _getFileFromIDB = async (fileName: string): Promise<Blob> => {
+		const request = idb.open(IDB_KEY);
+		let file: File;
+		return new Promise((res, rej) => {
+			request.onsuccess = event => {
+				const db = request.result;
+				console.log(event);
+				db.onerror = _event => {
+					console.error('Error reating or accessing indexedDB database');
+				};
+				const t = db.transaction(['files'], 'readonly');
+				const filesObjStore = t.objectStore('files').index('file_name');
+				const req = filesObjStore.get(fileName);
+				req.onsuccess = (event: any) => {
+					file = event.target.result;
+					res(file);
+				};
+				req.onerror = event => {
+					rej(event);
+				};
+			};
+		});
+	};
 	/**
 	 * Purge all keys from storage that were expired.
 	 *
@@ -154,7 +256,54 @@ export class AWSS3UploadManager {
 		);
 	}
 
-	public async addTask(input: AddTaskInput) {
+	public async listTasks(s3Client: S3Client) {
+		const uploadsFromStorage = this._storage.getItem(UPLOADS_STORAGE_KEY);
+		if (!uploadsFromStorage) {
+			return null;
+		}
+		const uploads: Record<string, FileMetadata> = JSON.parse(uploadsFromStorage) || {};
+		return new Promise((res, rej) => {
+			const request = idb.open(IDB_KEY, 2);
+			request.onsuccess = (_e: any) => {
+				const db = request.result;
+				db.onerror = (e: any) => {
+					console.error('Error reating or accessing indexedDB database');
+					rej(e);
+				};
+				const t = db.transaction(['files'], 'readonly');
+				const objStore = t.objectStore('files');
+				const req = objStore.getAll();
+				req.onsuccess = (e: any) => {
+					console.log(e.target.result);
+					const files: File[] = e.target.result;
+					const fs = files.map(f => ({
+						blob: f,
+						...Object.values(uploads).find(u => u.fileName === f.name),
+					}));
+					res(
+						fs.map(
+							f =>
+								new AWSS3UploadTask({
+									bucket: f.bucket,
+									key: f.key,
+									uploadId: f.uploadId,
+									file: f.blob,
+									s3Client,
+									emitter: new events.EventEmitter(),
+								})
+						)
+					);
+				};
+			};
+		});
+	}
+
+	public async createTask(input: AddTaskInput) {
+		const task = this.addTask(input);
+		return task;
+	}
+
+	public async addTask(input: AddTaskInput): Promise<AWSS3UploadTask> {
 		const { s3Client, bucket, key, file, emitter } = input;
 		let cachedUpload = {};
 		this._purgeExpiredKeys({
@@ -179,7 +328,6 @@ export class AWSS3UploadManager {
 		emitter.on(TaskEvents.ABORT, () => {
 			this._removeKey(fileKey);
 		});
-		console.log({ listUploadTasks: this._listUploadTasks() });
 		if (this._isListPartsOutput(cachedUpload)) {
 			const cachedUploadId = cachedUpload.UploadId;
 			const uploadedPartsOnS3 = cachedUpload.Parts;
@@ -201,6 +349,13 @@ export class AWSS3UploadManager {
 	private async _initMultiupload(input: AddTaskInput) {
 		console.log('cached upload not found, creating a new one');
 		const { s3Client, bucket, key, file, emitter, accessLevel } = input;
+		let f = await this._findFileFromIDB((file as File).name);
+		if (f) {
+			console.log('Found this file in IDB!');
+		} else {
+			await this._storeFileToIDB(input);
+			f = input.file;
+		}
 		const fileKey = this._getFileKey(file as File, bucket, key);
 		const createMultipartUpload = await s3Client.send(
 			new CreateMultipartUploadCommand({
@@ -213,7 +368,7 @@ export class AWSS3UploadManager {
 			uploadId: createMultipartUpload.UploadId,
 			bucket,
 			key,
-			file,
+			file: f,
 			emitter,
 		});
 		this._uploadTasks[createMultipartUpload.UploadId] = newTask;
@@ -224,7 +379,7 @@ export class AWSS3UploadManager {
 			bucket,
 			key,
 			accessLevel,
-			...( this._isFile(file) && { fileName: file.name }),
+			...(this._isFile(f) && { fileName: f.name }),
 		};
 		this._addKey(fileKey, fileMetadata);
 		return newTask;
@@ -236,7 +391,7 @@ export class AWSS3UploadManager {
 		this._storage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(uploads));
 	}
 
-	public getTask(uploadId: UploadId) {
+	public getTask(uploadId: UploadId): AWSS3UploadTask {
 		return this._uploadTasks[uploadId];
 	}
 

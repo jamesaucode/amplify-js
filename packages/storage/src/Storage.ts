@@ -280,6 +280,18 @@ export class Storage {
 		return responsePromise;
 	}
 
+	public listUploads(config?): Promise<any> {
+		const { provider = DEFAULT_PROVIDER } = config || {};
+		const prov = this._pluggables.find(
+			pluggable => pluggable.getProviderName() === provider
+		);
+		if (prov === undefined) {
+			logger.debug('No plugin found with providerName', provider);
+			return Promise.reject('No plugin found in Storage for the provider');
+		}
+		return prov.listUploads();
+	}
+
 	/**
 	 * Remove the object for specified key
 	 * @param {string} key - key of the object

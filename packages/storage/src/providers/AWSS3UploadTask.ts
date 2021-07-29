@@ -39,7 +39,7 @@ export interface AWSS3UploadTaskParams {
 	 * Completed Parts from an existing multipart upload
 	 */
 	completedParts?: Part[];
-	emitter?: events.EventEmitter;
+	emitter: events.EventEmitter;
 }
 
 export interface InProgressRequest {
