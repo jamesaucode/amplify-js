@@ -4,7 +4,10 @@
   "description": "Storage category of aws-amplify",
   "main": "./lib/index.js",
   "module": "./lib-esm/index.js",
-  "typings": "./lib-esm/index.d.ts",
+  "types": "./lib-esm/index.d.ts",
+  "tsd": {
+    "directory": "__tests__/types"
+  },
   "react-native": {
     "./lib/index": "./lib-esm/index.js"
   },
@@ -95,6 +98,7 @@
     ]
   },
   "devDependencies": {
-    "@types/sinon": "^7.5.1"
+    "@types/sinon": "^7.5.1",
+    "tsd": "^0.17.0"
   }
 }
