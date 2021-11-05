@@ -283,10 +283,6 @@ export class Storage {
 	public get<T extends Record<string, any>>(
 		key: string,
 		config?: StorageGetConfig<T>
-	): StorageGetOutput<T>;
-	public get<T extends StorageProvider>(
-		key: string,
-		config?: StorageGetConfig<T>
 	): StorageGetOutput<T> {
 		const provider = config?.provider || DEFAULT_PROVIDER;
 		const prov = this._pluggables.find(
@@ -321,11 +317,6 @@ export class Storage {
 	 */
 	public put<T extends Record<string, any>>(
 		key: string,
-		object: any,
-		config?: StoragePutConfig<T>
-	): StoragePutOutput<T>;
-	public put<T extends StorageProvider>(
-		key: string,
 		object: Omit<PutObjectCommandInput['Body'], 'ReadableStream' | 'Readable'>,
 		config?: StoragePutConfig<T>
 	): StoragePutOutput<T> {
@@ -359,10 +350,6 @@ export class Storage {
 	public remove<T extends Record<string, any>>(
 		key: string,
 		config?: StorageRemoveConfig<T>
-	): StorageRemoveOutput<T>;
-	public remove<T extends StorageProvider = AWSS3Provider>(
-		key: string,
-		config?: StorageRemoveConfig<T>
 	): StorageRemoveOutput<T> {
 		const provider = config?.provider || DEFAULT_PROVIDER;
 		const prov = this._pluggables.find(
@@ -384,10 +371,6 @@ export class Storage {
 	 * @return - Promise resolves to list of keys for all objects in path
 	 */
 	public list<T extends Record<string, any>>(
-		key: string,
-		config?: StorageListConfig<T>
-	): StorageListOutput<T>;
-	public list<T extends StorageProvider = AWSS3Provider>(
 		path: string,
 		config?: StorageListConfig<T>
 	): StorageListOutput<T> {
