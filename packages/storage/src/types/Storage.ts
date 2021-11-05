@@ -39,6 +39,12 @@ type Last<T extends any[]> = T[Exclude<keyof T, keyof Tail<T>>];
 // Utility type to extract the last parameter type of a function
 type LastParameter<F extends (...args: any) => any> = Last<Parameters<F>>;
 
+// Last parameter is always the config object
+type ConfigOf<
+	T extends StorageProvider,
+	U extends StorageProviderApi
+> = LastParameter<T[U]>;
+
 export interface StorageOptions {
 	credentials?: ICredentials;
 	region?: string;
@@ -78,99 +84,94 @@ export type StorageCopyDestination = Omit<StorageCopyTarget, 'identityId'>;
  * If provider is AWSS3, provider doesn't have to be specified since it's the default, else it has to be passed into
  * config.
  */
-type StorageOperationConfig<
+type StorageOperationConfigFromProv<
 	T extends StorageProvider | StorageProviderWithCopy,
 	U extends StorageProviderApi
 > = ReturnType<T['getProviderName']> extends 'AWSS3'
-	? LastParameter<AWSS3Provider[U]> // check if it has 'copy' function because 'copy' is optional
-	: T extends StorageProviderWithCopy
-	? LastParameter<T[U]> & { provider: ReturnType<T['getProviderName']> }
-	: LastParameter<T[Exclude<U, 'copy'>]> & {
-			provider: ReturnType<T['getProviderName']>;
-	  };
+	? ConfigOf<AWSS3Provider, U>
+	: ConfigOf<T, U> & { provider: ReturnType<T['getProviderName']> };
 
-export type StorageGetConfig<T> = T extends StorageProvider
-	? StorageOperationConfig<T, 'get'>
-	: StorageOperationConfigMap<StorageOperationConfig<AWSS3Provider, 'get'>, T>;
+type StorageOperationOutputFromProv<
+	T extends StorageProvider | StorageProviderWithCopy,
+	U extends StorageProviderApi
+> = ReturnType<T['getProviderName']> extends 'AWSS3'
+	? ReturnType<AWSS3Provider[U]>
+	: ReturnType<T[U]>;
+
+export type StorageGetConfig<
+	T extends StorageProvider | Record<string, any>
+> = T extends StorageProvider
+	? StorageOperationConfigFromProv<T, 'get'>
+	: StorageOperationConfigFromRecord<T, 'get'>;
 
 export type StoragePutConfig<T> = T extends StorageProvider
-	? StorageOperationConfig<T, 'put'>
-	: StorageOperationConfigMap<StorageOperationConfig<AWSS3Provider, 'put'>, T>;
+	? StorageOperationConfigFromProv<T, 'put'>
+	: StorageOperationConfigFromRecord<T, 'put'>;
 
 export type StorageRemoveConfig<T> = T extends StorageProvider
-	? StorageOperationConfig<T, 'remove'>
-	: StorageOperationConfigMap<
-			StorageOperationConfig<AWSS3Provider, 'remove'>,
-			T
-	  >;
+	? StorageOperationConfigFromProv<T, 'remove'>
+	: StorageOperationConfigFromRecord<T, 'remove'>;
 
 export type StorageListConfig<T> = T extends StorageProvider
-	? StorageOperationConfig<T, 'list'>
-	: StorageOperationConfigMap<StorageOperationConfig<AWSS3Provider, 'list'>, T>;
+	? StorageOperationConfigFromProv<T, 'list'>
+	: StorageOperationConfigFromRecord<T, 'list'>;
 
 export type StorageCopyConfig<T> = T extends StorageProviderWithCopy
-	? StorageOperationConfig<T, 'copy'>
-	: StorageOperationConfigMap<StorageOperationConfig<AWSS3Provider, 'copy'>, T>;
+	? StorageOperationConfigFromProv<T, 'copy'>
+	: StorageOperationConfigFromRecord<T, 'copy'>;
 
 /**
- * Utility type for checking if the generic type is a provider or a Record that has the key 'provider'.
- * If it's a provider, check if it's the S3 Provider, use the default type else use the generic's 'get' method
- * return type.
- * If it's a Record, check if provider is 'AWSS3', use the default type else use any.
+ * Check if provider is 'AWSS3', use the default output type else use Promise<any>.
  */
-type PickProviderOutput<
-	DefaultOutput,
-	T,
-	api extends StorageProviderApi
-> = T extends StorageProvider
-	? T['getProviderName'] extends 'AWSS3'
-		? DefaultOutput
-		: T extends StorageProviderWithCopy
-		? ReturnType<T[api]>
-		: ReturnType<T[Exclude<api, 'copy'>]>
-	: T extends { provider: string }
+type StorageOperationOutputFromRecord<T, Default> = T extends {
+	provider: string;
+}
 	? T extends { provider: 'AWSS3' }
-		? DefaultOutput
+		? Default
 		: Promise<any>
-	: DefaultOutput;
+	: Default;
 
 export type StorageGetOutput<
 	T extends StorageProvider | Record<string, any>
-> = PickProviderOutput<Promise<S3ProviderGetOuput<T>>, T, 'get'>;
+> = T extends StorageProvider
+	? StorageOperationOutputFromProv<T, 'get'>
+	: StorageOperationOutputFromRecord<T, Promise<S3ProviderGetOuput<T>>>;
 
-export type StoragePutOutput<T> = PickProviderOutput<
-	S3ProviderPutOutput<T>,
-	T,
-	'put'
->;
+export type StoragePutOutput<
+	T extends StorageProvider | Record<string, any>
+> = T extends StorageProvider
+	? StorageOperationOutputFromProv<T, 'put'>
+	: StorageOperationOutputFromRecord<T, S3ProviderPutOutput<T>>;
 
-export type StorageRemoveOutput<T> = PickProviderOutput<
-	Promise<S3ProviderRemoveOutput>,
-	T,
-	'remove'
->;
+export type StorageRemoveOutput<
+	T extends StorageProvider | Record<string, any>
+> = T extends StorageProvider
+	? StorageOperationOutputFromProv<T, 'remove'>
+	: StorageOperationOutputFromRecord<T, Promise<S3ProviderRemoveOutput>>;
 
-export type StorageListOutput<T> = PickProviderOutput<
-	Promise<S3ProviderListOutput>,
-	T,
-	'list'
->;
+export type StorageListOutput<
+	T extends StorageProvider | Record<string, any>
+> = T extends StorageProvider
+	? StorageOperationOutputFromProv<T, 'list'>
+	: StorageOperationOutputFromRecord<T, Promise<S3ProviderListOutput>>;
 
-export type StorageCopyOutput<T> = PickProviderOutput<
-	Promise<S3ProviderCopyOutput>,
-	T,
-	'copy'
->;
+export type StorageCopyOutput<
+	T extends StorageProviderWithCopy | Record<string, any>
+> = T extends StorageProvider
+	? StorageOperationOutputFromProv<T, 'copy'>
+	: StorageOperationOutputFromRecord<T, Promise<S3ProviderCopyOutput>>;
 
 /**
  * Utility type to allow custom provider to use any config keys, if provider is set to AWSS3 then it should use
  * AWSS3Provider's config.
  */
-export type StorageOperationConfigMap<
-	Default,
-	T extends Record<string, any>
-> = T extends { provider: string }
-	? T extends { provider: 'AWSS3' }
-		? Default
-		: T & { provider: string }
-	: Default;
+export type StorageOperationConfigFromRecord<
+	T extends Record<string, any>,
+	api extends StorageProviderApi
+> = T extends {
+	provider: string;
+} // if config has provider, also check if provider is the default AWSS3 provider
+	? T extends { provider: 'AWSS3' } // if yes, use the default AWSS3Provider config
+		? ConfigOf<AWSS3Provider, api> // else we allow anything as long as it specifies a provider
+		: T & { provider: string } // if config does not have provider, fallback to defeault AWSS3 provider config
+	: ConfigOf<AWSS3Provider, api>;

@@ -49,7 +49,9 @@ export type S3ProviderGetConfig = CommonStorageOptions & {
 	SSECustomerKeyMD5?: GetObjectRequest['SSECustomerKeyMD5'];
 };
 
-export type S3ProviderGetOuput<T> = T extends { download: true }
+export type S3ProviderGetOuput<T extends Record<string, any>> = T extends {
+	download: true;
+}
 	? GetObjectCommandOutput
 	: string;
 

@@ -280,14 +280,14 @@ export class Storage {
 	 * @param [config] - config for the Storage operation.
 	 * @return - A promise resolves to either a presigned url or the object
 	 */
-	// Adding & { download?: boolean }, if not T extends { download: true } ? ... : ... will not work properly
-	public get<T extends Record<string, any> & { download?: boolean }>(
+	public get<T extends Record<string, any>>(
 		key: string,
 		config?: StorageGetConfig<T>
 	): StorageGetOutput<T>;
-	public get<
-		T extends StorageProvider | { [key: string]: any; download?: boolean }
-	>(key: string, config?: StorageGetConfig<T>): StorageGetOutput<T> {
+	public get<T extends StorageProvider>(
+		key: string,
+		config?: StorageGetConfig<T>
+	): StorageGetOutput<T> {
 		const provider = config?.provider || DEFAULT_PROVIDER;
 		const prov = this._pluggables.find(
 			pluggable => pluggable.getProviderName() === provider
@@ -324,7 +324,7 @@ export class Storage {
 		object: any,
 		config?: StoragePutConfig<T>
 	): StoragePutOutput<T>;
-	public put<T extends StorageProvider = AWSS3Provider>(
+	public put<T extends StorageProvider>(
 		key: string,
 		object: Omit<PutObjectCommandInput['Body'], 'ReadableStream' | 'Readable'>,
 		config?: StoragePutConfig<T>

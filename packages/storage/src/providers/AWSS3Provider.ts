@@ -357,7 +357,7 @@ export class AWSS3Provider implements StorageProvider {
 	 * @return {Promise<string | GetObjectCommandOutput>} - A promise resolves to Amazon S3 presigned URL or the
 	 * GetObjectCommandOutput if download is set to true on success
 	 */
-	public async get<T extends S3ProviderGetConfig & StorageOptions>(
+	public async get<T extends S3ProviderGetConfig>(
 		key: string,
 		config?: T
 	): Promise<S3ProviderGetOuput<T>>;

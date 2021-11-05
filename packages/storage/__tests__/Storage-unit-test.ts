@@ -26,7 +26,7 @@ const options = {
 };
 
 class TestCustomProvider implements StorageProvider {
-	getProviderName(): string {
+	getProviderName() {
 		return 'customProvider' as const;
 	}
 
