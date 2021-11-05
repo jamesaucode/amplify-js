@@ -19,7 +19,6 @@ import {
 	StorageProvider,
 	StorageProviderApi,
 	AWSS3Provider,
-	StorageProviderWithCopy,
 	S3ProviderGetOuput,
 	S3ProviderRemoveOutput,
 	S3ProviderListOutput,
@@ -84,46 +83,44 @@ export type StorageCopyDestination = Omit<StorageCopyTarget, 'identityId'>;
  * If provider is AWSS3, provider doesn't have to be specified since it's the default, else it has to be passed into
  * config.
  */
-type StorageOperationConfigFromProv<
-	T extends StorageProvider | StorageProviderWithCopy,
+type ConfigFromProvider<
+	T extends StorageProvider,
 	U extends StorageProviderApi
 > = ReturnType<T['getProviderName']> extends 'AWSS3'
 	? ConfigOf<AWSS3Provider, U>
 	: ConfigOf<T, U> & { provider: ReturnType<T['getProviderName']> };
 
-type StorageOperationOutputFromProv<
-	T extends StorageProvider | StorageProviderWithCopy,
+type OutputFromProvider<
+	T extends StorageProvider,
 	U extends StorageProviderApi
 > = ReturnType<T['getProviderName']> extends 'AWSS3'
 	? ReturnType<AWSS3Provider[U]>
 	: ReturnType<T[U]>;
 
-export type StorageGetConfig<
-	T extends StorageProvider | Record<string, any>
-> = T extends StorageProvider
-	? StorageOperationConfigFromProv<T, 'get'>
-	: StorageOperationConfigFromRecord<T, 'get'>;
+export type StorageGetConfig<T> = T extends StorageProvider
+	? ConfigFromProvider<T, 'get'>
+	: ConfigFromObject<T, 'get'>;
 
 export type StoragePutConfig<T> = T extends StorageProvider
-	? StorageOperationConfigFromProv<T, 'put'>
-	: StorageOperationConfigFromRecord<T, 'put'>;
+	? ConfigFromProvider<T, 'put'>
+	: ConfigFromObject<T, 'put'>;
 
 export type StorageRemoveConfig<T> = T extends StorageProvider
-	? StorageOperationConfigFromProv<T, 'remove'>
-	: StorageOperationConfigFromRecord<T, 'remove'>;
+	? ConfigFromProvider<T, 'remove'>
+	: ConfigFromObject<T, 'remove'>;
 
 export type StorageListConfig<T> = T extends StorageProvider
-	? StorageOperationConfigFromProv<T, 'list'>
-	: StorageOperationConfigFromRecord<T, 'list'>;
+	? ConfigFromProvider<T, 'list'>
+	: ConfigFromObject<T, 'list'>;
 
-export type StorageCopyConfig<T> = T extends StorageProviderWithCopy
-	? StorageOperationConfigFromProv<T, 'copy'>
-	: StorageOperationConfigFromRecord<T, 'copy'>;
+export type StorageCopyConfig<T> = T extends StorageProvider
+	? ConfigFromProvider<T, 'copy'>
+	: ConfigFromObject<T, 'copy'>;
 
 /**
  * Check if provider is 'AWSS3', use the default output type else use Promise<any>.
  */
-type StorageOperationOutputFromRecord<T, Default> = T extends {
+type OutputFromObject<T, Default> = T extends {
 	provider: string;
 }
 	? T extends { provider: 'AWSS3' }
@@ -134,38 +131,38 @@ type StorageOperationOutputFromRecord<T, Default> = T extends {
 export type StorageGetOutput<
 	T extends StorageProvider | Record<string, any>
 > = T extends StorageProvider
-	? StorageOperationOutputFromProv<T, 'get'>
-	: StorageOperationOutputFromRecord<T, Promise<S3ProviderGetOuput<T>>>;
+	? OutputFromProvider<T, 'get'>
+	: OutputFromObject<T, Promise<S3ProviderGetOuput<T>>>;
 
 export type StoragePutOutput<
 	T extends StorageProvider | Record<string, any>
 > = T extends StorageProvider
-	? StorageOperationOutputFromProv<T, 'put'>
-	: StorageOperationOutputFromRecord<T, S3ProviderPutOutput<T>>;
+	? OutputFromProvider<T, 'put'>
+	: OutputFromObject<T, S3ProviderPutOutput<T>>;
 
 export type StorageRemoveOutput<
 	T extends StorageProvider | Record<string, any>
 > = T extends StorageProvider
-	? StorageOperationOutputFromProv<T, 'remove'>
-	: StorageOperationOutputFromRecord<T, Promise<S3ProviderRemoveOutput>>;
+	? OutputFromProvider<T, 'remove'>
+	: OutputFromObject<T, Promise<S3ProviderRemoveOutput>>;
 
 export type StorageListOutput<
 	T extends StorageProvider | Record<string, any>
 > = T extends StorageProvider
-	? StorageOperationOutputFromProv<T, 'list'>
-	: StorageOperationOutputFromRecord<T, Promise<S3ProviderListOutput>>;
+	? OutputFromProvider<T, 'list'>
+	: OutputFromObject<T, Promise<S3ProviderListOutput>>;
 
 export type StorageCopyOutput<
-	T extends StorageProviderWithCopy | Record<string, any>
+	T extends StorageProvider | Record<string, any>
 > = T extends StorageProvider
-	? StorageOperationOutputFromProv<T, 'copy'>
-	: StorageOperationOutputFromRecord<T, Promise<S3ProviderCopyOutput>>;
+	? OutputFromProvider<T, 'copy'>
+	: OutputFromObject<T, Promise<S3ProviderCopyOutput>>;
 
 /**
  * Utility type to allow custom provider to use any config keys, if provider is set to AWSS3 then it should use
  * AWSS3Provider's config.
  */
-export type StorageOperationConfigFromRecord<
+type ConfigFromObject<
 	T extends Record<string, any>,
 	api extends StorageProviderApi
 > = T extends {

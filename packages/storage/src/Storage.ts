@@ -239,14 +239,9 @@ export class Storage {
 	 * @param [config] - config for the Storage operation.
 	 * @return A promise resolves to the copied object's key.
 	 */
-	public copy<T extends Record<string, any>>(
+	public copy<T>(
 		src: StorageCopySource,
 		dest: StorageCopyDestination,
-		config?: StorageCopyConfig<T>
-	): StorageCopyOutput<T>;
-	public copy<T extends StorageProviderWithCopy = AWSS3Provider>(
-		src: Parameters<T['copy']>[0],
-		dest: Parameters<T['copy']>[1],
 		config?: StorageCopyConfig<T>
 	): StorageCopyOutput<T> {
 		const provider = config?.provider || DEFAULT_PROVIDER;
@@ -280,7 +275,7 @@ export class Storage {
 	 * @param [config] - config for the Storage operation.
 	 * @return - A promise resolves to either a presigned url or the object
 	 */
-	public get<T extends Record<string, any>>(
+	public get<T>(
 		key: string,
 		config?: StorageGetConfig<T>
 	): StorageGetOutput<T> {
