@@ -79,10 +79,6 @@ export type StorageCopySource = StorageCopyTarget;
 
 export type StorageCopyDestination = Omit<StorageCopyTarget, 'identityId'>;
 
-/**
- * If provider is AWSS3, provider doesn't have to be specified since it's the default, else it has to be passed into
- * config.
- */
 type ConfigFromProvider<
 	T extends StorageProvider,
 	U extends StorageProviderApi

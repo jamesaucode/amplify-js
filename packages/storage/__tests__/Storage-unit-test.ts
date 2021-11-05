@@ -541,11 +541,11 @@ describe('Storage', () => {
 				getSpy = jest
 					.spyOn(AWSStorageProvider.prototype, 'get')
 					.mockImplementation(() => {
-						return Promise.resolve(blob);
+						return Promise.resolve({ Body: blob });
 					});
 				const getOutput = await storage.get('key', { download: true });
 				expect(getSpy).toBeCalled();
-				expect(getOutput).toBe(blob);
+				expect(getOutput).toStrictEqual({ Body: blob });
 				getSpy.mockClear();
 			});
 
