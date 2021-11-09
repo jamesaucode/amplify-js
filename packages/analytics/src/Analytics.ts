@@ -264,7 +264,8 @@ export class AnalyticsClass {
 		return this._sendEvent(params);
 	}
 
-	public async updateEndpoint(attrs, provider?: string) {
+	// TODO: Stricten type for attrs
+	public async updateEndpoint(attrs: Record<string, any>, provider?: string) {
 		const event = { ...attrs, name: '_update_endpoint' };
 
 		return this.record(event, provider);
