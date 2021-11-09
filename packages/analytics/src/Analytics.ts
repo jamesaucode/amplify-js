@@ -23,7 +23,7 @@ import {
 	AnalyticsProvider,
 	EventAttributes,
 	EventMetrics,
-	pageViewTrackOpts,
+	AnalyticsEvent,
 } from './types';
 import { PageViewTracker, EventTracker, SessionTracker } from './trackers';
 
@@ -155,7 +155,7 @@ export class AnalyticsClass {
 	 * Get the plugin object
 	 * @param providerName - the name of the plugin
 	 */
-	public getPluggable(providerName) {
+	public getPluggable(providerName: string): AnalyticsProvider {
 		for (let i = 0; i < this._pluggables.length; i += 1) {
 			const pluggable = this._pluggables[i];
 			if (pluggable.getProviderName() === providerName) {
@@ -171,7 +171,7 @@ export class AnalyticsClass {
 	 * Remove the plugin object
 	 * @param providerName - the name of the plugin
 	 */
-	public removePluggable(providerName) {
+	public removePluggable(providerName: string): void {
 		let idx = 0;
 		while (idx < this._pluggables.length) {
 			if (this._pluggables[idx].getProviderName() === providerName) {
@@ -223,14 +223,25 @@ export class AnalyticsClass {
 
 	/**
 	 * Record one analytic event and send it to Pinpoint
-	 * @param {String} name - The name of the event
-	 * @param {Object} [attributes] - Attributes of the event
-	 * @param {Object} [metrics] - Event metrics
+	 * @param config - An object with the name of the event, attributes of the event and event metrics.
+	 * @param [provider] - name of the provider.
+	 */
+	public async record(config: AnalyticsEvent, provider?: string);
+	/**
+	 * Record one analytic event and send it to Pinpoint
+	 * @param name - The name of the event
+	 * @param [attributes] - Attributes of the event
+	 * @param [metrics] - Event metrics
 	 * @return - A promise which resolves if buffer doesn't overflow
 	 */
 	public async record(
-		event: string | object,
-		provider?,
+		event: string,
+		attributes?: EventAttributes,
+		metrics?: EventMetrics
+	);
+	public async record(
+		event: string | AnalyticsEvent,
+		providerOrAttributes?: string | EventAttributes,
 		metrics?: EventMetrics
 	) {
 		let params = null;
@@ -239,13 +250,13 @@ export class AnalyticsClass {
 			params = {
 				event: {
 					name: event,
-					attributes: provider,
+					attributes: providerOrAttributes,
 					metrics,
 				},
 				provider: 'AWSPinpoint',
 			};
 		} else {
-			params = { event, provider };
+			params = { event, provider: providerOrAttributes };
 		}
 		return this._sendEvent(params);
 	}

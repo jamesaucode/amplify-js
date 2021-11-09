@@ -58,3 +58,11 @@ export interface SessionTrackOpts {
 		| (() => EventAttributes | Promise<EventAttributes>);
 	provider?: string;
 }
+
+export interface AnalyticsEvent {
+	name: string;
+	attributes?: EventAttributes;
+	metrics?: EventMetrics;
+	immediate?: boolean;
+	provider?: string;
+}
