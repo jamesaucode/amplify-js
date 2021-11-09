@@ -24,6 +24,7 @@ import {
 	EventAttributes,
 	EventMetrics,
 	AnalyticsEvent,
+	AutoTrackOpts,
 } from './types';
 import { PageViewTracker, EventTracker, SessionTracker } from './trackers';
 
@@ -49,6 +50,9 @@ const trackers = {
 	session: SessionTracker,
 };
 
+type TrackerKey = keyof typeof trackers;
+type Tracker = typeof trackers[TrackerKey];
+
 let _instance = null;
 
 /**
@@ -57,8 +61,8 @@ let _instance = null;
 export class AnalyticsClass {
 	private _config;
 	private _pluggables: AnalyticsProvider[];
-	private _disabled;
-	private _trackers;
+	private _disabled: boolean;
+	private _trackers: Tracker;
 
 	/**
 	 * Initialize Analtyics
@@ -68,7 +72,6 @@ export class AnalyticsClass {
 		this._config = {};
 		this._pluggables = [];
 		this._disabled = false;
-		this._trackers = {};
 		_instance = this;
 
 		this.record = this.record.bind(this);
@@ -223,10 +226,10 @@ export class AnalyticsClass {
 
 	/**
 	 * Record one analytic event and send it to Pinpoint
-	 * @param config - An object with the name of the event, attributes of the event and event metrics.
+	 * @param event - An object with the name of the event, attributes of the event and event metrics.
 	 * @param [provider] - name of the provider.
 	 */
-	public async record(config: AnalyticsEvent, provider?: string);
+	public async record(event: AnalyticsEvent, provider?: string);
 	/**
 	 * Record one analytic event and send it to Pinpoint
 	 * @param name - The name of the event
@@ -235,7 +238,7 @@ export class AnalyticsClass {
 	 * @return - A promise which resolves if buffer doesn't overflow
 	 */
 	public async record(
-		event: string,
+		eventName: string,
 		attributes?: EventAttributes,
 		metrics?: EventMetrics
 	);
@@ -261,13 +264,13 @@ export class AnalyticsClass {
 		return this._sendEvent(params);
 	}
 
-	public async updateEndpoint(attrs, provider?) {
+	public async updateEndpoint(attrs, provider?: string) {
 		const event = { ...attrs, name: '_update_endpoint' };
 
 		return this.record(event, provider);
 	}
 
-	private _sendEvent(params) {
+	private _sendEvent(params: { event: AnalyticsEvent; provider?: string }) {
 		if (this._disabled) {
 			logger.debug('Analytics has been disabled');
 			return Promise.resolve();
@@ -284,7 +287,7 @@ export class AnalyticsClass {
 		});
 	}
 
-	public autoTrack(trackerType, opts) {
+	public autoTrack(trackerType: TrackerKey, opts: AutoTrackOpts) {
 		if (!trackers[trackerType]) {
 			logger.debug('invalid tracker type');
 			return;
