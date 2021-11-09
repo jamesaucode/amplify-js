@@ -50,8 +50,8 @@ const trackers = {
 	session: SessionTracker,
 };
 
-type TrackerKey = keyof typeof trackers;
-type Tracker = typeof trackers[TrackerKey];
+type TrackerType = keyof typeof trackers;
+type Tracker = typeof trackers[TrackerType];
 
 let _instance = null;
 
@@ -287,7 +287,7 @@ export class AnalyticsClass {
 		});
 	}
 
-	public autoTrack(trackerType: TrackerKey, opts: AutoTrackOpts) {
+	public autoTrack(trackerType: TrackerType, opts: AutoTrackOpts) {
 		if (!trackers[trackerType]) {
 			logger.debug('invalid tracker type');
 			return;
