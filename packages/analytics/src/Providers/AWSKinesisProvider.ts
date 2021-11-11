@@ -46,13 +46,35 @@ export interface KinesisProviderRecordParam {
 	config?: Record<string, any>;
 }
 
+export interface KinesisProviderConfig {
+	region?: string;
+	endpoint?: string;
+	/**
+	 * The buffer size for events in number of items.
+	 */
+	bufferSize?: number;
+	/**
+	 * The number of events to be deleted from the buffer when flushed.
+	 */
+	flushSize?: number;
+	/**
+	 * The interval in milliseconds to perform a buffer check and flush if necessary.
+	 */
+	flushInterval?: number; // 5s
+	/**
+	 * The limit for failed recording retries.
+	 */
+	resendLimit?: number;
+	credentials?: ICredentials;
+}
+
 export class AWSKinesisProvider implements AnalyticsProvider {
-	protected _config: Record<string, any>;
+	protected _config: KinesisProviderConfig;
 	private _kinesis: KinesisClient;
 	private _buffer: KinesisProviderBufferData[];
 	private _timer: ReturnType<typeof setInterval>;
 
-	constructor(config?: Record<string, any>) {
+	constructor(config?: KinesisProviderConfig) {
 		this._buffer = [];
 		this._config = config || {};
 		this._config.bufferSize = this._config.bufferSize || BUFFER_SIZE;
@@ -98,7 +120,7 @@ export class AWSKinesisProvider implements AnalyticsProvider {
 	 * configure the plugin
 	 * @param {Object} config - configuration
 	 */
-	public configure(config: Record<string, any>): object {
+	public configure(config: KinesisProviderConfig): object {
 		logger.debug('configure Analytics', config);
 		const conf = config || {};
 		this._config = Object.assign({}, this._config, conf);
@@ -225,7 +247,7 @@ export class AWSKinesisProvider implements AnalyticsProvider {
 		});
 	}
 
-	protected _init(config: Record<string, any>, credentials: ICredentials) {
+	protected _init(config: KinesisProviderConfig, credentials: ICredentials) {
 		logger.debug('init clients');
 
 		if (
