@@ -14,6 +14,7 @@
 import {
 	ConsoleLogger as Logger,
 	Credentials,
+	ICredentials,
 	getAmplifyUserAgent,
 } from '@aws-amplify/core';
 import { KinesisClient, PutRecordsCommand } from '@aws-sdk/client-kinesis';
@@ -28,13 +29,30 @@ const FLUSH_SIZE = 100;
 const FLUSH_INTERVAL = 5 * 1000; // 5s
 const RESEND_LIMIT = 5;
 
-export class AWSKinesisProvider implements AnalyticsProvider {
-	protected _config;
-	private _kinesis;
-	private _buffer;
-	private _timer;
+export interface KinesisProviderBufferData {
+	event: KinesisProviderEvent;
+	config?: Record<string, any>;
+	credentials: ICredentials;
+}
 
-	constructor(config?) {
+export interface KinesisProviderEvent {
+	data: any;
+	streamName: string;
+	partitionKey?: string;
+}
+
+export interface KinesisProviderRecordParam {
+	event: KinesisProviderEvent;
+	config?: Record<string, any>;
+}
+
+export class AWSKinesisProvider implements AnalyticsProvider {
+	protected _config: Record<string, any>;
+	private _kinesis: KinesisClient;
+	private _buffer: KinesisProviderBufferData[];
+	private _timer: ReturnType<typeof setInterval>;
+
+	constructor(config?: Record<string, any>) {
 		this._buffer = [];
 		this._config = config || {};
 		this._config.bufferSize = this._config.bufferSize || BUFFER_SIZE;
@@ -80,7 +98,7 @@ export class AWSKinesisProvider implements AnalyticsProvider {
 	 * configure the plugin
 	 * @param {Object} config - configuration
 	 */
-	public configure(config): object {
+	public configure(config: Record<string, any>): object {
 		logger.debug('configure Analytics', config);
 		const conf = config || {};
 		this._config = Object.assign({}, this._config, conf);
@@ -91,15 +109,18 @@ export class AWSKinesisProvider implements AnalyticsProvider {
 
 	/**
 	 * record an event
-	 * @param {Object} params - the params of an event
+	 * @param params - the params of an event
 	 */
-	public async record(params): Promise<boolean> {
+	public async record(params: KinesisProviderRecordParam): Promise<boolean> {
 		const credentials = await this._getCredentials();
 		if (!credentials) return Promise.resolve(false);
 
-		Object.assign(params, { config: this._config, credentials });
+		const bufferData: KinesisProviderBufferData = Object.assign(params, {
+			config: this._config,
+			credentials,
+		});
 
-		return this._putToBuffer(params);
+		return this._putToBuffer(bufferData);
 	}
 
 	public updateEndpoint() {
@@ -112,7 +133,7 @@ export class AWSKinesisProvider implements AnalyticsProvider {
 	 * @param params - params for the event recording
 	 * Put events into buffer
 	 */
-	private _putToBuffer(params) {
+	private _putToBuffer(params: KinesisProviderBufferData) {
 		if (this._buffer.length < BUFFER_SIZE) {
 			this._buffer.push(params);
 			return Promise.resolve(true);
@@ -122,12 +143,12 @@ export class AWSKinesisProvider implements AnalyticsProvider {
 		}
 	}
 
-	private _sendFromBuffer(events) {
+	private _sendFromBuffer(events: ReadonlyArray<KinesisProviderBufferData>) {
 		// collapse events by credentials
 		// events = [ {params} ]
-		const eventsGroups = [];
+		const eventsGroups: KinesisProviderBufferData[][] = [];
 		let preCred = null;
-		let group = [];
+		let group: KinesisProviderBufferData[] = [];
 		for (let i = 0; i < events.length; i += 1) {
 			const cred = events[i].credentials;
 			if (i === 0) {
@@ -150,12 +171,12 @@ export class AWSKinesisProvider implements AnalyticsProvider {
 		}
 		eventsGroups.push(group);
 
-		eventsGroups.map(evts => {
+		eventsGroups.map((evts) => {
 			this._sendEvents(evts);
 		});
 	}
 
-	protected _sendEvents(group) {
+	protected _sendEvents(group: KinesisProviderBufferData[]) {
 		if (group.length === 0) {
 			return;
 		}
@@ -167,7 +188,7 @@ export class AWSKinesisProvider implements AnalyticsProvider {
 
 		const records = {};
 
-		group.map(params => {
+		group.map((params) => {
 			// spit by streamName
 			const evt = params.event;
 			const { streamName } = evt;
@@ -186,7 +207,7 @@ export class AWSKinesisProvider implements AnalyticsProvider {
 			records[streamName].push(record);
 		});
 
-		Object.keys(records).map(async streamName => {
+		Object.keys(records).map(async (streamName) => {
 			logger.debug(
 				'putting records to kinesis with records',
 				records[streamName]
@@ -204,7 +225,7 @@ export class AWSKinesisProvider implements AnalyticsProvider {
 		});
 	}
 
-	protected _init(config, credentials) {
+	protected _init(config: Record<string, any>, credentials: ICredentials) {
 		logger.debug('init clients');
 
 		if (
@@ -223,7 +244,11 @@ export class AWSKinesisProvider implements AnalyticsProvider {
 		return this._initKinesis(region, endpoint, credentials);
 	}
 
-	private _initKinesis(region, endpoint, credentials) {
+	private _initKinesis(
+		region: string,
+		endpoint: string,
+		credentials: ICredentials
+	) {
 		logger.debug('initialize kinesis with credentials', credentials);
 		this._kinesis = new KinesisClient({
 			region,
@@ -240,12 +265,12 @@ export class AWSKinesisProvider implements AnalyticsProvider {
 	 */
 	private _getCredentials() {
 		return Credentials.get()
-			.then(credentials => {
+			.then((credentials) => {
 				if (!credentials) return null;
 				logger.debug('set credentials for analytics', this._config.credentials);
 				return Credentials.shear(credentials);
 			})
-			.catch(err => {
+			.catch((err) => {
 				logger.debug('ensure credentials error', err);
 				return null;
 			});
