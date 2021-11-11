@@ -31,7 +31,7 @@ const RESEND_LIMIT = 5;
 
 export interface KinesisProviderBufferData {
 	event: KinesisProviderEvent;
-	config?: Record<string, any>;
+	config?: KinesisProviderConfig;
 	credentials: ICredentials;
 }
 
@@ -43,7 +43,7 @@ export interface KinesisProviderEvent {
 
 export interface KinesisProviderRecordParam {
 	event: KinesisProviderEvent;
-	config?: Record<string, any>;
+	config?: KinesisProviderConfig;
 }
 
 export interface KinesisProviderConfig {
