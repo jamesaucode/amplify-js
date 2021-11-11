@@ -138,7 +138,7 @@ export class AnalyticsClass {
 
 	/**
 	 * add plugin into Analytics category
-	 * @param {Object} pluggable - an instance of the plugin
+	 * @param pluggable - an instance of the plugin
 	 */
 	public addPluggable(pluggable: AnalyticsProvider) {
 		if (pluggable && pluggable.getCategory() === 'Analytics') {
@@ -157,7 +157,7 @@ export class AnalyticsClass {
 
 	/**
 	 * Get the plugin object
-	 * @param providerName - the name of the plugin
+	 * @param providerName - the name of the provider to be removed
 	 */
 	public getPluggable(providerName: string): AnalyticsProvider {
 		for (let i = 0; i < this._pluggables.length; i += 1) {
@@ -173,7 +173,7 @@ export class AnalyticsClass {
 
 	/**
 	 * Remove the plugin object
-	 * @param providerName - the name of the plugin
+	 * @param providerName - the name of the provider to be removed
 	 */
 	public removePluggable(providerName: string): void {
 		let idx = 0;
@@ -209,6 +209,7 @@ export class AnalyticsClass {
 
 	/**
 	 * Record Session start
+	 * @param [provider] - name of the provider.
 	 * @return - A promise which resolves if buffer doesn't overflow
 	 */
 	public async startSession(provider?: string) {
@@ -218,6 +219,7 @@ export class AnalyticsClass {
 
 	/**
 	 * Record Session stop
+	 * @param [provider] - name of the provider.
 	 * @return - A promise which resolves if buffer doesn't overflow
 	 */
 	public async stopSession(provider?: string) {
@@ -290,6 +292,11 @@ export class AnalyticsClass {
 		});
 	}
 
+	/**
+	 * Enable or disable auto tracking
+	 * @param trackerType - The type of tracker to activate.
+	 * @param [opts] - Auto tracking options.
+	 */
 	public autoTrack(trackerType: TrackerType, opts: AutoTrackOpts) {
 		if (!trackers[trackerType]) {
 			logger.debug('invalid tracker type');
