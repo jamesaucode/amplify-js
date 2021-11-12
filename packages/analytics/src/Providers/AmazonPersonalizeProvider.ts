@@ -16,6 +16,7 @@ import {
 	Credentials,
 	JS,
 	getAmplifyUserAgent,
+	ICredentials,
 } from '@aws-amplify/core';
 import {
 	PersonalizeEventsClient,
@@ -43,16 +44,40 @@ const FLUSH_INTERVAL = 5 * 1000; // 5s
 
 const IDENTIFY_EVENT = 'Identify';
 
-export class AmazonPersonalizeProvider implements AnalyticsProvider {
-	private _config;
-	private _personalize;
-	private _buffer;
-	private _timer;
-	private _sessionInfo: SessionInfo;
-	private _sessionManager;
-	private _isBrowser;
+export type PersonalizeProviderEvent = {
+	event: {
+		eventType: string;
+		properties: Record<string, any>;
+		eventId?: string;
+		eventValue?: number;
+		userId?: string;
+		impression?: string[];
+		itemId?: string;
+		recommendationId?: string;
+	};
+	config?: Record<string, any>;
+	sentAt?: Date;
+	credentials?: ICredentials;
+};
 
-	constructor(config?) {
+export interface PersonalizeProviderConfig {
+	trackingId?: string;
+	region?: string;
+	flushSize?: number;
+	flushInterval?: number;
+	credentials?: ICredentials;
+}
+
+export class AmazonPersonalizeProvider implements AnalyticsProvider {
+	private _config: PersonalizeProviderConfig;
+	private _personalize: PersonalizeEventsClient;
+	private _buffer: RequestParams[];
+	private _timer: ReturnType<typeof setInterval>;
+	private _sessionInfo: SessionInfo;
+	private _sessionManager: SessionInfoManager;
+	private _isBrowser: boolean;
+
+	constructor(config?: PersonalizeProviderConfig) {
 		this._buffer = [];
 		this._config = config ? config : {};
 		this._config.flushSize =
@@ -90,7 +115,7 @@ export class AmazonPersonalizeProvider implements AnalyticsProvider {
 	 * @param properties     - properties of the event
 	 * @return Promise
 	 */
-	public async record(params): Promise<boolean> {
+	public async record(params: PersonalizeProviderEvent): Promise<boolean> {
 		const credentials = await this._getCredentials();
 		if (!credentials) return Promise.resolve(false);
 
@@ -149,7 +174,7 @@ export class AmazonPersonalizeProvider implements AnalyticsProvider {
 		return this.putToBuffer(requestParams);
 	}
 
-	private loadElement(domId): Promise<boolean> {
+	private loadElement(domId: string): Promise<boolean> {
 		return new Promise((resolve, reject) => {
 			if (
 				document.getElementById(domId) &&
@@ -163,16 +188,16 @@ export class AmazonPersonalizeProvider implements AnalyticsProvider {
 	}
 
 	private isElementFullyLoaded(
-		operation,
-		params,
-		delay,
-		times
+		operation: (domId: string) => Promise<any>,
+		params: string,
+		delay: number,
+		times: number
 	): Promise<boolean> {
-		const wait = ms => new Promise(r => setTimeout(r, ms));
+		const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 		return new Promise((resolve, reject) => {
 			return operation(params)
 				.then(resolve)
-				.catch(reason => {
+				.catch((reason) => {
 					if (times - 1 > 0) {
 						return wait(delay)
 							.then(
@@ -230,7 +255,10 @@ export class AmazonPersonalizeProvider implements AnalyticsProvider {
 	 * @param api            - api name
 	 * @return RequestParams - wrapper object with all information required for make request
 	 */
-	private generateRequestParams(params, sessionInfo): RequestParams {
+	private generateRequestParams(
+		params: PersonalizeProviderEvent,
+		sessionInfo: SessionInfo
+	): RequestParams {
 		const requestParams = <RequestParams>{};
 		const { eventType, properties } = params.event;
 		requestParams.eventData = { eventType, properties };
@@ -245,7 +273,7 @@ export class AmazonPersonalizeProvider implements AnalyticsProvider {
 	 * record an event
 	 * @param {Object} params - the params of an event
 	 */
-	private _sendEvents(group) {
+	private _sendEvents(group: RequestParams[]) {
 		const groupLen = group.length;
 		if (groupLen === 0) {
 			logger.debug('events array is empty, directly return');
@@ -260,23 +288,18 @@ export class AmazonPersonalizeProvider implements AnalyticsProvider {
 			const events: RecordEventPayload[] = [];
 			for (let i = 0; i < groupLen; i += 1) {
 				const params: RequestParams = group.shift();
-				const eventPayload: RecordEventPayload = this._generateSingleRecordPayload(
-					params,
-					sessionInfo
-				);
+				const eventPayload: RecordEventPayload =
+					this._generateSingleRecordPayload(params, sessionInfo);
 				events.push(eventPayload);
 			}
-			const payload = <PutEventsCommandInput>{};
-			payload.trackingId = sessionInfo.trackingId;
-			payload.sessionId = sessionInfo.sessionId;
-			payload.userId = sessionInfo.userId;
-			payload.eventList = [];
-			events.forEach(event => {
-				// @ts-ignore
-				payload.eventList.push(event);
-			});
-			const command: PutEventsCommand = new PutEventsCommand(payload);
-			this._personalize.send(command, err => {
+			const payload: PutEventsCommandInput = {
+				trackingId: sessionInfo.trackingId,
+				sessionId: sessionInfo.sessionId,
+				userId: sessionInfo.userId,
+				eventList: events,
+			};
+			const command = new PutEventsCommand(payload);
+			this._personalize.send(command, (err) => {
 				if (err) logger.debug('Failed to call putEvents in Personalize', err);
 				else logger.debug('Put events');
 			});
@@ -306,11 +329,11 @@ export class AmazonPersonalizeProvider implements AnalyticsProvider {
 	private _sendFromBuffer() {
 		const size = this._buffer.length;
 		if (size <= 0) return;
-		const eventsGroups = [];
+		const eventsGroups: RequestParams[][] = [];
 		let preCred = null;
-		let group = [];
+		let group: RequestParams[] = [];
 		for (let i = 0; i < size; i += 1) {
-			const currRequestParams: RequestParams = this._buffer.shift();
+			const currRequestParams = this._buffer.shift();
 			const cred = currRequestParams.credentials;
 			const sessionInfo = currRequestParams.sessionInfo;
 			if (i === 0) {
@@ -335,7 +358,7 @@ export class AmazonPersonalizeProvider implements AnalyticsProvider {
 		}
 		eventsGroups.push(group);
 
-		eventsGroups.map(group => {
+		eventsGroups.map((group) => {
 			this._sendEvents(group);
 		});
 	}
@@ -347,7 +370,7 @@ export class AmazonPersonalizeProvider implements AnalyticsProvider {
 	 */
 	private _generateSingleRecordPayload(
 		params: RequestParams,
-		sessionInfo
+		sessionInfo: SessionInfo
 	): RecordEventPayload {
 		const { eventData, sentAt } = params;
 		const trackPayload = <RecordEventPayload>{};
@@ -365,7 +388,7 @@ export class AmazonPersonalizeProvider implements AnalyticsProvider {
 	 * @private
 	 * @param params - RequestParams
 	 */
-	private _init(config, credentials) {
+	private _init(config, credentials: ICredentials) {
 		logger.debug('init clients');
 
 		if (
@@ -396,12 +419,12 @@ export class AmazonPersonalizeProvider implements AnalyticsProvider {
 	private _getCredentials() {
 		const that = this;
 		return Credentials.get()
-			.then(credentials => {
+			.then((credentials) => {
 				if (!credentials) return null;
 				logger.debug('set credentials for analytics', that._config.credentials);
 				return Credentials.shear(credentials);
 			})
-			.catch(err => {
+			.catch((err) => {
 				logger.debug('ensure credentials error', err);
 				return null;
 			});

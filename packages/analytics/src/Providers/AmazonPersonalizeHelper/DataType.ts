@@ -30,7 +30,7 @@ export interface RequestParams {
 	eventData: EventData;
 	sessionInfo: SessionInfo;
 	config: Config;
-	sentAt: number;
+	sentAt: Date;
 	credentials: ICredentials;
 }
 
@@ -48,7 +48,7 @@ export interface SessionInfo {
 export interface RecordEventPayload {
 	eventId: string;
 	eventType: string;
-	sentAt: number;
+	sentAt: Date;
 	properties?: string;
 }
 
