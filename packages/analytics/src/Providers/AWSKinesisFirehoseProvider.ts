@@ -11,8 +11,12 @@
  * and limitations under the License.
  */
 
-import { ConsoleLogger as Logger } from '@aws-amplify/core';
-import { AWSKinesisProvider } from './AWSKinesisProvider';
+import { ConsoleLogger as Logger, ICredentials } from '@aws-amplify/core';
+import {
+	AWSKinesisProvider,
+	KinesisProviderBufferData,
+	KinesisProviderConfig,
+} from './AWSKinesisProvider';
 import {
 	PutRecordBatchCommand,
 	FirehoseClient,
@@ -24,7 +28,7 @@ const logger = new Logger('AWSKineisFirehoseProvider');
 export class AWSKinesisFirehoseProvider extends AWSKinesisProvider {
 	private _kinesisFirehose: FirehoseClient;
 
-	constructor(config?) {
+	constructor(config?: KinesisProviderConfig) {
 		super(config);
 	}
 
@@ -35,7 +39,7 @@ export class AWSKinesisFirehoseProvider extends AWSKinesisProvider {
 		return 'AWSKinesisFirehose';
 	}
 
-	protected _sendEvents(group) {
+	protected _sendEvents(group: KinesisProviderBufferData[]) {
 		if (group.length === 0) {
 			return;
 		}
@@ -47,7 +51,7 @@ export class AWSKinesisFirehoseProvider extends AWSKinesisProvider {
 
 		const records = {};
 
-		group.map(params => {
+		group.map((params) => {
 			// split by streamName
 			const evt = params.event;
 			const { streamName, data } = evt;
@@ -62,7 +66,7 @@ export class AWSKinesisFirehoseProvider extends AWSKinesisProvider {
 			records[streamName].push(record);
 		});
 
-		Object.keys(records).map(streamName => {
+		Object.keys(records).map((streamName) => {
 			logger.debug(
 				'putting records to kinesis',
 				streamName,
@@ -77,12 +81,14 @@ export class AWSKinesisFirehoseProvider extends AWSKinesisProvider {
 						DeliveryStreamName: streamName,
 					})
 				)
-				.then(res => logger.debug('Upload records to stream', streamName))
-				.catch(err => logger.debug('Failed to upload records to Kinesis', err));
+				.then((_res) => logger.debug('Upload records to stream', streamName))
+				.catch((err) =>
+					logger.debug('Failed to upload records to Kinesis', err)
+				);
 		});
 	}
 
-	protected _init(config, credentials) {
+	protected _init(config: KinesisProviderConfig, credentials: ICredentials) {
 		logger.debug('init clients');
 
 		if (
@@ -101,7 +107,7 @@ export class AWSKinesisFirehoseProvider extends AWSKinesisProvider {
 		return this._initFirehose(region, credentials);
 	}
 
-	private _initFirehose(region, credentials) {
+	private _initFirehose(region: string, credentials: ICredentials) {
 		logger.debug('initialize kinesis firehose with credentials', credentials);
 		this._kinesisFirehose = new FirehoseClient({
 			apiVersion: '2015-08-04',
