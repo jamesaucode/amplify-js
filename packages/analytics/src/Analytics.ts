@@ -1,9 +1,5 @@
 /*
-<<<<<<< HEAD
- * Copyright 2017-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-=======
  * Copyright 2017-2022 Amazon.com, Inc. or its affiliates. All Rights Reserved.
->>>>>>> upstream/main
  *
  * Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance with
  * the License. A copy of the License is located at
@@ -141,11 +137,7 @@ export class AnalyticsClass {
 
 	/**
 	 * add plugin into Analytics category
-<<<<<<< HEAD
 	 * @param pluggable - an instance of the plugin
-=======
-	 * @param {Object} pluggable - an instance of the plugin
->>>>>>> upstream/main
 	 */
 	public addPluggable(pluggable: AnalyticsProvider) {
 		if (pluggable && pluggable.getCategory() === 'Analytics') {
@@ -216,10 +208,7 @@ export class AnalyticsClass {
 
 	/**
 	 * Record Session start
-<<<<<<< HEAD
 	 * @param [provider] - name of the provider.
-=======
->>>>>>> upstream/main
 	 * @return - A promise which resolves if buffer doesn't overflow
 	 */
 	public async startSession(provider?: string) {
@@ -229,10 +218,7 @@ export class AnalyticsClass {
 
 	/**
 	 * Record Session stop
-<<<<<<< HEAD
 	 * @param [provider] - name of the provider.
-=======
->>>>>>> upstream/main
 	 * @return - A promise which resolves if buffer doesn't overflow
 	 */
 	public async stopSession(provider?: string) {
