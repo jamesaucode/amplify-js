@@ -201,8 +201,7 @@ declare module 'amazon-cognito-identity-js' {
 		): void;
 		public updateAttributes(
 			attributes: (CognitoUserAttribute | ICognitoUserAttributeData)[],
-			callback: NodeCallback<Error, string>,
-			clientMetadata?: ClientMetadata
+			callback: NodeCallback<Error, string>
 		): void;
 		public deleteAttributes(
 			attributeList: string[],
