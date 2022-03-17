@@ -91,4 +91,10 @@ export interface AnalyticsEvent {
 	attributes?: EventAttributes;
 	metrics?: EventMetrics;
 	immediate?: boolean;
+	parititionKey?: string;
+	streamName?: string;
+	userId?: string;
+	eventType?: string;
+	properties?: { [key: string]: string };
+	data?: string | object;
 }
