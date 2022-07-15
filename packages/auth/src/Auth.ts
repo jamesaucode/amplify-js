@@ -477,43 +477,47 @@ export class AuthClass {
 		pw?: string,
 		clientMetadata: ClientMetaData = this._config.clientMetadata
 	): Promise<CognitoUser | any> {
-		if (!this.userPool) {
-			return this.rejectNoUserPool();
-		}
-
-		let username = null;
-		let password = null;
-		let validationData = {};
-
-		// for backward compatibility
-		if (typeof usernameOrSignInOpts === 'string') {
-			username = usernameOrSignInOpts;
-			password = pw;
-		} else if (isUsernamePasswordOpts(usernameOrSignInOpts)) {
-			if (typeof pw !== 'undefined') {
-				logger.warn(
-					'The password should be defined under the first parameter object!'
-				);
+		try {
+			if (!this.userPool) {
+				return this.rejectNoUserPool();
 			}
-			username = usernameOrSignInOpts.username;
-			password = usernameOrSignInOpts.password;
-			validationData = usernameOrSignInOpts.validationData;
-		} else {
-			return this.rejectAuthError(AuthErrorTypes.InvalidUsername);
-		}
-		if (!username) {
-			return this.rejectAuthError(AuthErrorTypes.EmptyUsername);
-		}
-		const authDetails = new AuthenticationDetails({
-			Username: username,
-			Password: password,
-			ValidationData: validationData,
-			ClientMetadata: clientMetadata,
-		});
-		if (password) {
-			return this.signInWithPassword(authDetails);
-		} else {
-			return this.signInWithoutPassword(authDetails);
+
+			let username = null;
+			let password = null;
+			let validationData = {};
+
+			// for backward compatibility
+			if (typeof usernameOrSignInOpts === 'string') {
+				username = usernameOrSignInOpts;
+				password = pw;
+			} else if (isUsernamePasswordOpts(usernameOrSignInOpts)) {
+				if (typeof pw !== 'undefined') {
+					logger.warn(
+						'The password should be defined under the first parameter object!'
+					);
+				}
+				username = usernameOrSignInOpts.username;
+				password = usernameOrSignInOpts.password;
+				validationData = usernameOrSignInOpts.validationData;
+			} else {
+				return this.rejectAuthError(AuthErrorTypes.InvalidUsername);
+			}
+			if (!username) {
+				return this.rejectAuthError(AuthErrorTypes.EmptyUsername);
+			}
+			const authDetails = new AuthenticationDetails({
+				Username: username,
+				Password: password,
+				ValidationData: validationData,
+				ClientMetadata: clientMetadata,
+			});
+			if (password) {
+				return this.signInWithPassword(authDetails);
+			} else {
+				return this.signInWithoutPassword(authDetails);
+			}
+		} catch (err) {
+			// TODO: throw sign in error here
 		}
 	}
 
