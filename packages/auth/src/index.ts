@@ -32,6 +32,10 @@ export {
 	isAuthorizationToken,
 	GRAPHQL_AUTH_MODE,
 } from './types';
+export {
+	CognitoUser,
+	appendToCognitoUserAgent,
+} from 'amazon-cognito-identity-js';
 
 export { Auth } from './Auth';
 export { Auth as default } from './Auth';
